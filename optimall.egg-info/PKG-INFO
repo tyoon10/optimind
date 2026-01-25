@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: optimall
+Version: 0.1.0
+Summary: Personal Assistant with Domain Expert Subagents
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.100.0
+Requires-Dist: uvicorn>=0.20.0
+Requires-Dist: langgraph>=0.0.10
+Requires-Dist: langchain-google-vertexai>=0.0.5
+Requires-Dist: langchain-core>=0.1.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: slack-bolt>=1.18.0
+Requires-Dist: python-dotenv>=1.0.0
