@@ -5,3 +5,6 @@ __pycache__/
 venv/
 *.json
 !user_memory.json
+logs/
+bin/cloudflared.exe
+*.log

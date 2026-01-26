@@ -9,7 +9,9 @@ class MemoryStore:
     A simple file-based memory store for the MVP.
     Stores user preferences in a JSON file.
     """
-    def __init__(self, file_path: str = "user_memory.json"):
+    def __init__(self, file_path: str = "data/journal/user_profile.json"):
+        # If path is relative, join with BASE_DIR. If absolute, use as is.
+        # Note: data/journal is relative to BASE_DIR
         self.file_path = os.path.join(config.BASE_DIR, file_path)
         self.profile = self._load()
 
