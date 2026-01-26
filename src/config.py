@@ -7,32 +7,48 @@ load_dotenv()
 class Config:
     """Centralized configuration for OptiMind."""
     
-    # Environment
-    ENV = os.getenv("OPTIMIND_ENV", "development")
-    IsDev = ENV == "development"
-    
-    # Google / Vertex AI
-    GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
-    GOOGLE_LOCATION = os.getenv("GOOGLE_LOCATION", "us-central1")
-    # Default to Gemini 2.0 Flash (Stable on Vertex) but can be overridden
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
-    
-    # AI Studio (API Key) - Required for Gemini 3 Preview if not on allowlist
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    def __init__(self):
+        # Environment
+        self.ENV = os.getenv("OPTIMIND_ENV", "development")
+        self.IS_DEV = self.ENV == "development"
+        
+        # Google / Vertex AI
+        self.GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
+        self.GOOGLE_LOCATION = os.getenv("GOOGLE_LOCATION", "us-central1")
+        # Default to Gemini 3.0 Flash (Stable on Vertex) but can be overridden
+        self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+        self.GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-    # Slack
-    SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-    SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
-    SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
+        # Slack
+        self.SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
+        self.SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
+        self.SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
 
-    # Git / Journal
-    GITHUB_PAT = os.getenv("GITHUB_PAT")
-    # Default to the current repo if not specified, but for cloud we need a URL
-    JOURNAL_REPO_URL = os.getenv("JOURNAL_REPO_URL")
+        # Git / Journal
+        self.GITHUB_PAT = os.getenv("GITHUB_PAT")
+        self.JOURNAL_REPO_URL = os.getenv("JOURNAL_REPO_URL")
 
-    # Paths
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    DOCS_DIR = os.path.join(BASE_DIR, "docs")
-    CONTEXT_FILE = os.path.join(DOCS_DIR, "OPTIMIND_CONTEXT.md")
+        # Paths
+        self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.DOCS_DIR = os.path.join(self.BASE_DIR, "docs")
+        self.DATA_DIR = os.path.join(self.BASE_DIR, "data")
+        
+        # Validation
+        self._validate()
+
+    def _validate(self):
+        """Ensure critical environment variables are present."""
+        errors = []
+        if not self.SLACK_BOT_TOKEN:
+            errors.append("Missing SLACK_BOT_TOKEN")
+        if not self.SLACK_SIGNING_SECRET:
+            errors.append("Missing SLACK_SIGNING_SECRET")
+            
+        # We need EITHER Vertex Project OR Google API Key
+        if not self.GOOGLE_PROJECT_ID and not self.GOOGLE_API_KEY:
+            errors.append("Missing both GOOGLE_PROJECT_ID and GOOGLE_API_KEY. Need at least one.")
+
+        if errors:
+            raise EnvironmentError(f"Configuration Errors: {', '.join(errors)}")
 
 config = Config()
