@@ -1,6 +1,10 @@
 # OptiMind: AI Personal Assistant
 
-**OptiMind** is a local-first, privacy-focused AI assistant powered by Google's Gemini 3 Flash. It integrates with Slack to help manage your schedule, nutrition, and health.
+**OptiMind** is a local-first, privacy-focused AI assistant that integrates with Slack to help manage your schedule, nutrition, and health.
+
+> **v3.0 (March 2026):** OptiMind has been rebuilt on the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview). The new version is in [`optimind-sdk/`](optimind-sdk/). See the [migration README](optimind-sdk/README.md) for the full architecture comparison and lessons learned.
+>
+> The code below documents the original Gemini 3 Flash + LangChain version (v1-v2).
 
 ## 🚀 How to Start (After Restarting Laptop)
 
@@ -53,3 +57,20 @@ Because we are using a free "Quick Tunnel," **your URL changes every time you re
 *   **"No Response"**: Check the Server window. Did it crash?
 *   **"Slack Verification Failed"**: Ensure the Tunnel is running and you copied the URL correctly (https + /slack/events).
 *   **"Sunrise is Wrong"**: The bot now reads `data/journal`. You can manually edit today's markdown file to correct facts if needed.
+
+---
+
+## 🏆 Gemini 3 Competition Submission
+
+**OptiMind** is submitted for the Gemini 3 Hackathon.
+
+### 🔑 Configuration (Env Vars)
+To run this project, you need the following environment variables in a `.env` file or your deployment environment:
+*   `GOOGLE_API_KEY`: Your Gemini API Key.
+*   `SLACK_BOT_TOKEN`: Information from your Slack App.
+*   `SLACK_APP_TOKEN`: App-level token.
+*   `SLACK_SIGNING_SECRET`: Signing secret.
+
+> **Note on Privacy:** This repository does NOT include the User's personal journal (`data/journal`) or `user_profile.json` as they contain private health and professional data.
+>
+> If you run this without `GITHUB_PAT` and `JOURNAL_REPO_URL` configured, OptiMind will default to **Memory-Only Mode**, creating a fresh, empty journal locally for testing purposes.

@@ -34,5 +34,12 @@ async def slack_events(request: Request):
     Main webhook for Slack Events API.
     Delegates fully to the Slack Service handler.
     """
+    # Deduplication: Ignore Slack Retries
+    if "x-slack-retry-num" in request.headers:
+        retry_num = request.headers["x-slack-retry-num"]
+        retry_reason = request.headers.get("x-slack-retry-reason", "unknown")
+        logger.warning(f"Ignoring Slack Retry #{retry_num} (Reason: {retry_reason})")
+        return {"status": "ok", "message": "Ignored retry"}
+
     # Simply pass the request to Bolt's AsyncHandler
     return await slack_handler.handle(request)

@@ -1,6 +1,9 @@
 # Use official lightweight Python image
 FROM python:3.11-slim
 
+# Force Python stdout/stderr to be unbuffered (Critical for Cloud Run logs)
+ENV PYTHONUNBUFFERED=1
+
 # Install system dependencies (Git is required for Journal Sync)
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
