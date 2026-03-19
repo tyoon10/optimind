@@ -1,0 +1,10 @@
+# OptiMind SDK — 4 dependencies (was 14 in v1)
+claude-agent-sdk>=0.1.48
+slack-bolt>=1.18.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+
+# Preserved from v1
+python-dotenv>=1.0.0
+pytz>=2024.1
+gitpython>=3.1.40

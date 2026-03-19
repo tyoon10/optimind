@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+logs/
+*.log
+
+# Data files contain personal health/journal data — never commit
+data/journal/*.md
+data/state.json
+data/user_profile.json
