@@ -20,6 +20,9 @@ class JournalManager:
         else:
             self.journal_dir = journal_dir
             
+        # Prevent Git from hanging on auth prompts (Critical for Headless/Cloud)
+        os.environ["GIT_TERMINAL_PROMPT"] = "0"
+            
         self.repo = None
         
     def initialize_repo(self):
@@ -100,30 +103,33 @@ class JournalManager:
         filename = f"{date.isoformat()}.md"
         return os.path.join(self.journal_dir, filename)
 
-    def _sync_git(self, message: str = "Update journal"):
+    def sync(self, push: bool = True):
         """
-        Pull latest changes, Commit local changes, Push to remote.
+        Public Sync Method.
+        push=False -> Pull Only (Start of session)
+        push=True -> Commit & Push (End of session)
         """
         if not self.repo:
             return
 
         try:
-            # 1. Add & Commit (Save local changes first)
-            if self.repo.is_dirty(path=self.journal_dir) or self.repo.untracked_files:
-                self.repo.git.add(self.journal_dir)
-                self.repo.index.commit(message)
-                print(f"DEBUG: Committed: {message}")
-            else:
-                 print("DEBUG: No changes to commit.")
-
-            # 2. Pull (Merge upstream into local)
+            # 1. Pull (Always pull to avoid conflicts/get latest)
             print("DEBUG: Git Pull...")
-            self.repo.git.pull("origin", "main") 
+            self.repo.git.pull("origin", "main")
             
-            # 3. Push
-            print("DEBUG: Git Push...")
-            self.repo.git.push()
-            print("DEBUG: Push successful.")
+            if push:
+                # 2. Add & Commit
+                if self.repo.is_dirty(path=self.journal_dir) or self.repo.untracked_files:
+                    # Generic commit message for the session
+                    msg = f"Journal Sync {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                    self.repo.git.add(self.journal_dir)
+                    self.repo.index.commit(msg)
+                    print(f"DEBUG: Committed: {msg}")
+                
+                # 3. Push
+                print("DEBUG: Git Push...")
+                self.repo.git.push()
+                print("DEBUG: Push successful.")
                 
         except Exception as e:
             print(f"ERROR: Git Sync Failed: {e}")
@@ -131,11 +137,8 @@ class JournalManager:
     def log_interaction(self, role: str, content: str, hidden_context: str = None):
         """
         Append a message to today's log.
-        role: 'User', 'Agent (Scheduler)', etc.
+        Writes LOCALLY only. Requires manual sync() call to persist to cloud.
         """
-        # 1. Sync BEFORE writing (to get latest cloud edits)
-        self._sync_git(message="Sync before write")
-        
         filepath = self._get_daily_file_path()
         
         # FIX: Use EST instead of System Time (UTC)
@@ -154,32 +157,26 @@ class JournalManager:
             with open(filepath, "r", encoding="utf-8") as f:
                 existing_content = f.read()
                 
-            # Fail-safe Deduplication: If this exact content is already at the end of the file, skip.
-            # We strip whitespace to be safe.
-            if content.strip() in existing_content[-len(content)*2:]:  # Check last 2x length chunk
+            # Fail-safe Deduplication
+            if content.strip() in existing_content[-len(content)*2:]:
                 print(f"DEBUG: Generic deduplication triggered for content: {content[:20]}...")
                 return
 
-        entry = f"\n### {timestamp} | {role}\n{content}\n"
-        if hidden_context:
-            entry += f"<!-- Context: {hidden_context} -->\n"
-            
         with open(filepath, "a", encoding="utf-8") as f:
             f.write(entry)
             
-        # 2. Sync AFTER writing (to save to cloud)
-        self._sync_git(message=f"Log interaction: {timestamp} {role}")
-
     def get_recent_context(self, days: int = 7) -> str:
         """
         Read the last N days of logs into a single context string.
-        Optimized for Gemini 3's large window.
+        LOCALLY reads only. Requires manual sync() call to get latest from cloud.
         """
-        # Optional: Sync before reading too
-        self._sync_git(message="Sync before read")
-        
         context_parts = []
-        today = datetime.date.today()
+        try:
+            import pytz
+            tz = pytz.timezone('US/Eastern')
+            today = datetime.datetime.now(tz).date()
+        except ImportError:
+            today = datetime.date.today()
         
         # Iterate backwards from today
         for i in range(days):
@@ -190,9 +187,6 @@ class JournalManager:
                 with open(filepath, "r", encoding="utf-8") as f:
                     content = f.read()
                     header = f"\n\n=== JOURNAL LOG: {date.isoformat()} ===\n"
-                    # Prepend so newest is at bottom? Or oldest at top?
-                    # Usually LLMs read top-to-bottom. Chronological is best.
-                    # So we should collect them and reverse order?
                     context_parts.append(header + content)
         
         # Reverse so oldest day is first, today is last

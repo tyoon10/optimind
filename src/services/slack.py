@@ -31,7 +31,7 @@ async def process_and_reply(user_id: str, channel_id: str, user_text: str):
         # Note: journal logging for User/Agent happens inside optimind.run()
         response_text = await optimind.run(user_text, user_id=user_id)
         
-        # Send result back
+        # Send result back (instant to user)
         if response_text:
             await slack_app.client.chat_postMessage(
                 channel=channel_id,
@@ -39,7 +39,15 @@ async def process_and_reply(user_id: str, channel_id: str, user_text: str):
             )
         else:
             logger.error("Empty response from OptiMind Agent.")
-            
+
+        # Sync journal AFTER Slack response is sent (no user-facing latency).
+        # Awaited here so it completes before this task ends — prevents
+        # orphaned background tasks that get killed on Cloud Run.
+        try:
+            await asyncio.to_thread(journal_manager.sync, push=True)
+        except Exception as sync_err:
+            logger.error(f"Journal sync failed: {sync_err}", exc_info=True)
+
     except Exception as e:
         logger.error(f"Error processing message: {e}", exc_info=True)
         await slack_app.client.chat_postMessage(
