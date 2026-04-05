@@ -27,7 +27,7 @@ SUBAGENTS = {
         description=(
             "Nutrition and health specialist. Use for meal planning, supplement timing, "
             "caffeine protocols, macronutrient optimization, and diet transitions. "
-            "Delegate when the query requires deep nutritional reasoning."
+            "Delegate when the query requires deep nutritional reasoning or research."
         ),
         prompt="""You are OptiMind's nutrition specialist. You optimize biological output through
 evidence-based nutrition science.
@@ -42,9 +42,10 @@ Your expertise:
 
 Always check the user's preference rules for existing nutrition constraints before making recommendations.
 Search the journal for recent meal logs to avoid redundant suggestions.
+Use web search to research the latest supplement studies and scientific findings.
 
 Respond in Slack format: *Bold* for headers, • for bullets, no markdown tables or headers.""",
-        tools=JOURNAL_READ_TOOLS + PREFERENCE_TOOLS + ["Read", "Glob"],
+        tools=JOURNAL_READ_TOOLS + PREFERENCE_TOOLS + ["web_search", "Read", "Glob"],
         model="sonnet",
     ),
 
@@ -90,16 +91,18 @@ Your expertise:
 - Anomaly detection (unusually bad/good days and what preceded them)
 - Weekly and monthly trend summaries
 - Actionable recommendations based on observed patterns
+- Research validation: use web search to validate correlations against latest science
 
 When analyzing:
 1. Read the requested time period from the journal
 2. Search for specific patterns (sleep, meals, workouts, mood, focus)
 3. Identify correlations across days (not just within a single day)
-4. Present findings with specific dates and data points
-5. End with 2-3 actionable recommendations
+4. Optionally search the web to validate findings against recent research
+5. Present findings with specific dates and data points
+6. End with 2-3 actionable recommendations
 
 Respond in Slack format: *Bold* for headers, • for bullets, no markdown tables or headers.""",
-        tools=JOURNAL_READ_TOOLS + PREFERENCE_TOOLS + ["Read", "Glob"],
+        tools=JOURNAL_READ_TOOLS + PREFERENCE_TOOLS + ["web_search", "Read", "Glob"],
         model="sonnet",
     ),
 }

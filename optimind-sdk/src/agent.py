@@ -56,7 +56,7 @@ def get_agent_options(session_id: Optional[str] = None) -> ClaudeAgentOptions:
     """
     opts = ClaudeAgentOptions(
         mcp_servers={"optimind": optimind_tools},
-        allowed_tools=TOOL_NAMES + ["Agent"],
+        allowed_tools=TOOL_NAMES + ["Agent", "web_search"],
         agents=SUBAGENTS,
         setting_sources=["project"],  # loads CLAUDE.md from working directory
         max_turns=20,
