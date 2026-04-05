@@ -8,3 +8,7 @@ venv/
 logs/
 bin/cloudflared.exe
 *.log
+
+# Personal data — never commit
+data/
+Gemini conversation history/

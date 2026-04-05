@@ -33,11 +33,11 @@ The agent needs access to the Vertex AI API to call Gemini.
 5.  A file will automatically download (e.g., `optimall-assistant-12345-abcdef.json`).
 
 ## Step 5: Configure Local Environment
-1.  Move the downloaded JSON file to your project root (same folder as `main.py`'s parent, usually `/path/to/OptiMind`).
+1.  Move the downloaded JSON file to your project root (same folder as `main.py`'s parent).
     *   *Security Note*: Ensure this file is ignored by git (add `*.json` to `.gitignore`).
-2.  Update your `/path/to/OptiMind\.env` file:
+2.  Update your `.env` file:
     ```env
-    GOOGLE_APPLICATION_CREDENTIALS="/path/to/OptiMind/optimall-assistant-12345-abcdef.json"
+    GOOGLE_APPLICATION_CREDENTIALS="path/to/your-service-account-key.json"
     GOOGLE_PROJECT_ID="your-project-id"
     ```
     *(Note: Use forward slashes `/` in the path to avoid escape character issues)*.
