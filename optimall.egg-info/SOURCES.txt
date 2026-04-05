@@ -1,8 +1,0 @@
-pyproject.toml
-optimall.egg-info/PKG-INFO
-optimall.egg-info/SOURCES.txt
-optimall.egg-info/dependency_links.txt
-optimall.egg-info/requires.txt
-optimall.egg-info/top_level.txt
-src/config.py
-src/main.py

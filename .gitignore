@@ -12,3 +12,6 @@ bin/cloudflared.exe
 # Personal data — never commit
 data/
 Gemini conversation history/
+
+# Build artifacts
+*.egg-info/
