@@ -1,6 +1,6 @@
 # OptiMind Startup Script
 
-$root = "/path/to/OptiMind"
+$root = $PSScriptRoot | Split-Path -Parent
 Set-Location $root
 
 Write-Host "🚀 Launching OptiMind..." -ForegroundColor Cyan
