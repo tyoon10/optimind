@@ -1,10 +1,20 @@
 # OptiMind: AI Personal Assistant
 
-**OptiMind** is a local-first, privacy-focused AI assistant that integrates with Slack to help manage your schedule, nutrition, and health.
-
-> **v3.0 (March 2026):** OptiMind has been rebuilt on the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview). The new version is in [`optimind-sdk/`](optimind-sdk/). See the [migration README](optimind-sdk/README.md) for the full architecture comparison and lessons learned.
+> **Status — Archived (2026-04-19).** This repo is a design/engineering record of two completed iterations of OptiMind. The active version is no longer here.
 >
-> The code below documents the original Gemini 3 Flash + LangChain version (v1-v2).
+> **Active version:** `github.com/tyoon10/optimind-journal` — a Claude Code native workflow. The agent runs via the Claude Code mobile/desktop app directly on a private journal repo; no Slack, no server, no deployment. CLAUDE.md, subagents (`nutritionist`, `scheduler`, `analyst`), and rule storage live alongside the journal files.
+>
+> **What's in this repo:**
+> - `src/` — v1-v2 (Jan–Feb 2026): Gemini 3 Flash + LangChain + FastAPI + Slack-Bolt. Submitted to the Gemini 3 Hackathon. Deployed to Cloud Run.
+> - `optimind-sdk/` — v3.0 (Mar 2026): Rebuilt on the Claude Agent SDK. See [`optimind-sdk/ARCHITECTURE.md`](optimind-sdk/ARCHITECTURE.md) for the full problem-driven redesign. Never deployed — superseded by the Claude Code mobile workflow before production cutover.
+>
+> **Why the Slack/server architecture was abandoned:** once Claude Code mobile became a viable interface, the entire server+tunnel+Cloud Run stack was infrastructure for a problem that no longer existed. The agent reads/writes the journal markdown files directly.
+
+---
+
+**OptiMind** was a local-first, privacy-focused AI assistant that integrated with Slack to help manage schedule, nutrition, and health.
+
+The documentation below covers the original Gemini 3 Flash + LangChain version (v1-v2), which is the submission form for the Gemini 3 Hackathon.
 
 ## 🚀 How to Start (After Restarting Laptop)
 
