@@ -15,8 +15,7 @@ import asyncio
 
 from claude_agent_sdk import HookMatcher
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-JOURNAL_DIR = os.path.join(BASE_DIR, "data", "journal")
+from src.config import journal_root
 
 
 def _git_sync():
@@ -24,10 +23,11 @@ def _git_sync():
     try:
         from git import Repo, GitCommandError
 
-        if not os.path.exists(os.path.join(JOURNAL_DIR, ".git")):
-            return  # No repo, nothing to sync
+        repo_root = journal_root()
+        if not os.path.exists(os.path.join(repo_root, ".git")):
+            return  # OPTIMIND_JOURNAL_PATH isn't a git checkout, nothing to sync
 
-        repo = Repo(JOURNAL_DIR)
+        repo = Repo(repo_root)
 
         # Pull first to avoid conflicts
         try:
@@ -36,11 +36,11 @@ def _git_sync():
             print(f"Git pull warning: {e}")
 
         # Commit and push if dirty
-        if repo.is_dirty(path=JOURNAL_DIR) or repo.untracked_files:
+        if repo.is_dirty() or repo.untracked_files:
             import datetime
 
             msg = f"Journal Sync {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}"
-            repo.git.add(JOURNAL_DIR)
+            repo.git.add(A=True)
             repo.index.commit(msg)
             repo.git.push()
 
