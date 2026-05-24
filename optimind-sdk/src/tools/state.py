@@ -13,8 +13,11 @@ from typing import Any
 
 from claude_agent_sdk import tool
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
+from src.config import journal_root
+
+
+def _state_path() -> str:
+    return os.path.join(journal_root(), "state.json")
 
 DEFAULT_STATE = {
     "system_mode": "STANDARD",
@@ -27,10 +30,11 @@ VALID_MODES = {"STANDARD", "EXAM_MODE", "DEEP_WORK", "RECOVERY"}
 
 
 def _read_state() -> dict:
-    if not os.path.exists(STATE_PATH):
+    path = _state_path()
+    if not os.path.exists(path):
         return DEFAULT_STATE.copy()
     try:
-        with open(STATE_PATH, "r") as f:
+        with open(path, "r") as f:
             return json.load(f)
     except (json.JSONDecodeError, FileNotFoundError):
         return DEFAULT_STATE.copy()
@@ -38,8 +42,9 @@ def _read_state() -> dict:
 
 def _write_state(state: dict):
     state["last_updated"] = datetime.now().isoformat()
-    os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
-    with open(STATE_PATH, "w") as f:
+    path = _state_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
         json.dump(state, f, indent=2)
 
 

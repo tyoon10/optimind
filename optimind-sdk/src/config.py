@@ -3,14 +3,22 @@ Configuration — simplified from v1.
 
 Removed: GOOGLE_API_KEY, GOOGLE_PROJECT_ID, GOOGLE_LOCATION, GEMINI_MODEL,
          dual-provider validation logic.
-Added: ANTHROPIC_API_KEY.
+Added: ANTHROPIC_API_KEY, OPTIMIND_JOURNAL_PATH.
 Preserved: Slack tokens, GitHub PAT, journal repo URL, path resolution.
+
+OPTIMIND_JOURNAL_PATH is the runtime coupling to the optimind-journal repo
+(see schemas/optimind_interface.md). When set, all journal/profile/state I/O
+resolves under that path. When unset, the legacy in-repo data/ directory is
+used and a warning is logged.
 """
 
+import logging
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -30,9 +38,30 @@ class Config:
 
         # Paths
         self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.DATA_DIR = os.path.join(self.BASE_DIR, "data")
+        self.JOURNAL_PATH = self._resolve_journal_path()
+        self.DATA_DIR = self.JOURNAL_PATH  # back-compat alias
 
         self._validate()
+
+    def _resolve_journal_path(self) -> str:
+        """
+        Resolve the journal/profile/state root.
+
+        Precedence:
+        1. OPTIMIND_JOURNAL_PATH env var (the canonical binding).
+        2. Legacy in-repo <optimind-sdk>/data/ (warns).
+        """
+        env_path = os.getenv("OPTIMIND_JOURNAL_PATH")
+        if env_path:
+            return os.path.abspath(os.path.expanduser(env_path))
+
+        fallback = os.path.join(self.BASE_DIR, "data")
+        logger.warning(
+            "OPTIMIND_JOURNAL_PATH not set; falling back to %s. "
+            "Set OPTIMIND_JOURNAL_PATH to point at your optimind-journal checkout for production.",
+            fallback,
+        )
+        return fallback
 
     def _validate(self):
         errors = []
@@ -42,8 +71,20 @@ class Config:
             errors.append("Missing SLACK_BOT_TOKEN")
         if not self.SLACK_SIGNING_SECRET:
             errors.append("Missing SLACK_SIGNING_SECRET")
+        if self.ENV == "production" and not os.getenv("OPTIMIND_JOURNAL_PATH"):
+            errors.append("OPTIMIND_JOURNAL_PATH must be set in production")
         if errors:
             raise EnvironmentError(f"Configuration Errors: {', '.join(errors)}")
 
 
 config = Config()
+
+
+def journal_root() -> str:
+    """Module-level accessor so tools can import without a full Config()."""
+    env_path = os.getenv("OPTIMIND_JOURNAL_PATH")
+    if env_path:
+        return os.path.abspath(os.path.expanduser(env_path))
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"
+    )
