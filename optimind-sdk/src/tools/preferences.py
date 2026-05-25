@@ -7,31 +7,67 @@ Changed: agent can now add/delete rules mid-conversation (preference learning re
 """
 
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Any
 
 from claude_agent_sdk import tool
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-PROFILE_PATH = os.path.join(BASE_DIR, "data", "user_profile.json")
+from src.config import journal_root
 
-DEFAULT_PROFILE = {"user_id": "1", "name": "User", "rules": []}
+logger = logging.getLogger(__name__)
+
+SCHEMA_VERSION = "1.0"
+DEFAULT_PROFILE = {
+    "schema_version": SCHEMA_VERSION,
+    "user_id": "1",
+    "name": "User",
+    "rules": [],
+}
+
+
+def _profile_path() -> str:
+    return os.path.join(journal_root(), "user_profile.json")
+
+
+def _validate_schema_version(profile: dict) -> None:
+    """
+    Refuse to proceed on schema mismatch (per schemas/optimind_interface.md).
+    Migration is explicit — see migrations/user_profile_<from>to<to>.py.
+    """
+    version = profile.get("schema_version")
+    if version is None:
+        raise ValueError(
+            f"user_profile.json is missing 'schema_version'. Expected '{SCHEMA_VERSION}'. "
+            f"This file pre-dates the schema; add schema_version manually or run the migration."
+        )
+    if version != SCHEMA_VERSION:
+        raise ValueError(
+            f"user_profile.json schema_version is '{version}', runtime expects '{SCHEMA_VERSION}'. "
+            f"Run migrations/user_profile_{version.replace('.', '')}to{SCHEMA_VERSION.replace('.', '')}.py "
+            f"to upgrade."
+        )
 
 
 def _load_profile() -> dict:
-    if not os.path.exists(PROFILE_PATH):
+    path = _profile_path()
+    if not os.path.exists(path):
         return DEFAULT_PROFILE.copy()
     try:
-        with open(PROFILE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        return DEFAULT_PROFILE.copy()
+        with open(path, "r", encoding="utf-8") as f:
+            profile = json.load(f)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"user_profile.json is corrupted: {e}") from e
+    _validate_schema_version(profile)
+    return profile
 
 
 def _save_profile(profile: dict):
-    os.makedirs(os.path.dirname(PROFILE_PATH), exist_ok=True)
-    with open(PROFILE_PATH, "w", encoding="utf-8") as f:
+    profile.setdefault("schema_version", SCHEMA_VERSION)
+    path = _profile_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(profile, f, indent=2, default=str)
 
 

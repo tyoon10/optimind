@@ -11,8 +11,8 @@ import pytz
 
 from claude_agent_sdk import HookMatcher
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-JOURNAL_DIR = os.path.join(BASE_DIR, "data", "journal")
+from src.config import journal_root
+
 TZ = pytz.timezone("US/Eastern")
 
 
@@ -24,11 +24,12 @@ async def on_stop(input_data, tool_use_id, context):
     # Stop hooks don't have tool_input; they signal the agent finished.
     # We use async output so the agent isn't blocked.
     try:
+        journal_dir = os.path.join(journal_root(), "journal")
         today = datetime.datetime.now(TZ).date()
-        filepath = os.path.join(JOURNAL_DIR, f"{today.isoformat()}.md")
+        filepath = os.path.join(journal_dir, f"{today.isoformat()}.md")
         timestamp = datetime.datetime.now(TZ).strftime("%H:%M")
 
-        os.makedirs(JOURNAL_DIR, exist_ok=True)
+        os.makedirs(journal_dir, exist_ok=True)
 
         # Log that the agent completed a turn
         entry = f"\n### {timestamp} | System\n[Agent session turn completed]\n"
