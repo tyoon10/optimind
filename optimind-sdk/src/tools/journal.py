@@ -14,10 +14,14 @@ from typing import Any
 import pytz
 from claude_agent_sdk import tool
 
-# Resolve paths relative to project root
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-JOURNAL_DIR = os.path.join(BASE_DIR, "data", "journal")
+from src.config import journal_root
+
 TZ = pytz.timezone("US/Eastern")
+
+
+def _journal_dir() -> str:
+    """Resolved per-call so tests / runtime env changes are picked up."""
+    return os.path.join(journal_root(), "journal")
 
 
 def _today() -> datetime.date:
@@ -25,7 +29,7 @@ def _today() -> datetime.date:
 
 
 def _daily_path(date: datetime.date) -> str:
-    return os.path.join(JOURNAL_DIR, f"{date.isoformat()}.md")
+    return os.path.join(_journal_dir(), f"{date.isoformat()}.md")
 
 
 @tool(
@@ -99,7 +103,7 @@ async def log_entry(args: dict[str, Any]) -> dict[str, Any]:
     timestamp = datetime.datetime.now(TZ).strftime("%H:%M")
     entry = f"\n### {timestamp} | {role}\n{content}\n"
 
-    os.makedirs(JOURNAL_DIR, exist_ok=True)
+    os.makedirs(_journal_dir(), exist_ok=True)
 
     # Deduplication: skip if content already appears near end of file
     if os.path.exists(filepath):

@@ -57,6 +57,38 @@ You can delegate to specialized subagents:
 
 Delegate when the query requires deep domain reasoning. Handle simple or cross-domain queries yourself.
 
+## Architecture
+
+OptiMind is split across two repos that bind at runtime, not at build time:
+
+- **`tyoon10/optimind`** (this repo) — agent runtime, MCP tools, generic agent prompts, and the canonical schemas.
+- **`optimind-journal`** — personal data: `user_profile.json`, daily `journal/YYYY-MM-DD.md` files, and a personal `.claude/agents/` override layer.
+
+### Where each artifact lives
+
+| Artifact                         | Path                                           | Owner repo         |
+|----------------------------------|------------------------------------------------|--------------------|
+| User profile JSON Schema         | `schemas/user_profile.schema.json`             | optimind (canonical) |
+| Journal entry format spec        | `schemas/journal_entry.schema.md`              | optimind (canonical) |
+| Interface contract               | `schemas/optimind_interface.md`                | optimind (canonical) |
+| Generic subagent prompts         | `.claude/agents/<name>.md`                     | optimind            |
+| Personal subagent overrides      | `<journal>/.claude/agents/<name>.md`           | optimind-journal    |
+| User profile data                | `<journal>/user_profile.json`                  | optimind-journal    |
+| Daily journal entries            | `<journal>/journal/YYYY-MM-DD.md`              | optimind-journal    |
+| Active state                     | `<journal>/state.json`                         | optimind-journal    |
+
+### Runtime binding
+
+The runtime resolves the journal repo location from the `OPTIMIND_JOURNAL_PATH` env var. All tool I/O (`src/tools/journal.py`, `src/tools/preferences.py`, `src/tools/state.py`) and hooks (`src/hooks/journal_hook.py`, `src/hooks/sync_hook.py`) read this via `src.config.journal_root()`. In production, startup fails if the variable is unset.
+
+### Schema validation
+
+On load of `user_profile.json`, `preferences.py` checks `schema_version` against the runtime's expected version (currently `"1.0"`). Mismatch → `ValueError` with a pointer to the relevant `migrations/user_profile_<from>to<to>.py` script. Migrations are explicit, never automatic.
+
+### Agent prompt resolution (LSP-style)
+
+The base prompt in `.claude/agents/<name>.md` is generic and personal-data-free. If `<OPTIMIND_JOURNAL_PATH>/.claude/agents/<name>.md` exists, its body is appended as an override (e.g. "Before You Answer, read `user_profile.json` and …"). See `schemas/optimind_interface.md` for details.
+
 ## Summary Instructions
 
 When summarizing this conversation (during compaction), always preserve:
