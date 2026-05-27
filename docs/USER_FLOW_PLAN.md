@@ -46,7 +46,9 @@ Bound at runtime via `OPTIMIND_JOURNAL_PATH`. See `schemas/optimind_interface.md
 | State (mode + constraints + focus) | `get_state` / `set_state` over `state.json`; modes: `STANDARD`, `EXAM_MODE`, `DEEP_WORK`, `RECOVERY` |
 | Preference rules | `get_rules` / `add_rule` / `delete_rule` over `user_profile.json`; PENDING semantics at confidence `< 0.5` |
 | Structured daily logs | _not yet implemented — see §7.3 for proposed `daily/YYYY-MM-DD.json` artifact_ |
+| Dashboard → journal mirror | _not yet implemented — see §7.5 dual-write contract_ |
 | Today's protocol | _not yet implemented — see §7.4_ |
+| Long-term memory promotion from logs | _partial — see §7.5 + §8.3 (reflection must read both journal AND daily files)_ |
 | Subagent delegation | `nutritionist`, `scheduler`, `analyst` defined in `.claude/agents/` (generic) + override layer in optimind-journal |
 | Web search | Enabled on main + nutritionist + analyst |
 | Git sync of journal | `sync_hook` commits + pushes the optimind-journal repo after each turn |
@@ -55,13 +57,13 @@ Bound at runtime via `OPTIMIND_JOURNAL_PATH`. See `schemas/optimind_interface.md
 
 **Near-term, unblocks the new architecture (in dependency order):**
 1. **`schemas/daily_log.schema.json`** — formal schema for `daily/YYYY-MM-DD.json` (§7.3). Nothing else can land cleanly without this.
-2. **Daily-log MCP tools** — `get_daily`, `log_field` (sleep/meal/caffeine/routine/workout), `set_protocol`. Mirror the existing tool pattern; read/write via `OPTIMIND_JOURNAL_PATH`.
+2. **Daily-log MCP tools with dual-write** — `get_daily`, `log_field` (sleep/meal/caffeine/routine/workout), `set_protocol`. **Every `log_field` write must also append a `Dashboard`-role line to `journal/<date>.md`** (§7.5). Read/write via `OPTIMIND_JOURNAL_PATH`.
 3. **`SessionStart` hook** in optimind that clones/pulls optimind-journal and sets `OPTIMIND_JOURNAL_PATH` — without this, CC mobile sessions can't see personal data.
 4. **`.mcp.json`** at repo root so any CC session auto-registers the optimind MCP server.
 5. **Morning brief Routine** — generates today's `protocol` (§7.4). Validates the whole pipeline end-to-end before the dashboard ships.
-6. **Dashboard MVP — "Today" view only** — protocol checklist + the four logging forms (sleep, meal/caffeine, routine, workout). No trends, no rule mgmt yet.
+6. **Dashboard MVP — "Today" view only** — protocol checklist + the four logging forms (sleep, meal/caffeine, routine, workout). Calls the dual-write tools from item 2. No trends, no rule mgmt yet.
 7. **Scheduled-jobs scaffolding** — `.github/workflows/` for the GHA jobs; a `routines/` directory for CC Routine prompts (per §8).
-8. **Reflection pipeline** — `scripts/reflect.py` that the 22:00 Routine invokes; emits `MemoryAction` deltas applied via existing tools.
+8. **Reflection pipeline** — `scripts/reflect.py` that the 22:00 Routine invokes; reads **both** `journal/*.md` and `daily/*.json` (§7.5); emits `MemoryAction` deltas applied via existing tools.
 
 **Mid-term:**
 - Calendar integration (read-only) for morning brief
@@ -159,10 +161,11 @@ Each interactive session is **ephemeral**: a fresh container, fresh clone of opt
 ### Flow B: In-the-moment logging **[ANSWERED]**
 - **Trigger:** Event happens (woke up, ate, finished workout, took supplement).
 - **Steps:**
-  - **Structured (default):** Dashboard → tap the relevant row in "Today" → form prefilled with `time = now` → adjust + submit. Writes `daily/<date>.json` via the dashboard API.
-  - **Flexible (when structured doesn't fit):** Open CC mobile → "logged: cold shower 7:35, felt foggy after". Session writes verbatim to `journal/<date>.md` (UserPromptSubmit hook) AND parses the structured part into `daily/<date>.json` via `log_entry`-equivalent tool.
+  - **Structured (default):** Dashboard → tap the relevant row in "Today" → form prefilled with `time = now` → adjust + submit. API dual-writes (§7.5): `daily/<date>.json` (structured) + `journal/<date>.md` `Dashboard`-role mirror.
+  - **Flexible (when structured doesn't fit):** Open CC mobile → "logged: cold shower 7:35, felt foggy after". Session writes verbatim to `journal/<date>.md` (UserPromptSubmit hook) AND parses the structured part into `daily/<date>.json` via a `log_field` tool.
 - **System reads:** existing `daily/<date>.json` for dedup; rules for validation (e.g., "caffeine after 2 PM" rule → warn).
-- **System writes:** `daily/<date>.json`; if validation surfaces a rule violation, a journal entry capturing the deviation.
+- **System writes:** see Steps above; if validation surfaces a rule deviation, an `Agent` journal entry capturing it.
+- **Long-term memory:** Both paths feed the nightly reflection (§7.5, §8.3) — no orphan inputs.
 - **Success:** Structured log < 3 taps; flexible log < 10s including the rule-check feedback.
 - **Failure mode:** Form has too many required fields → user abandons. Mitigation: every field is optional except the one being logged.
 
@@ -323,7 +326,55 @@ Override mechanism: the user tells CC mobile "today, skip X and add Y". The sess
 
 If nothing has been generated and no override exists, the dashboard falls back to a hard-coded **default protocol** (basic morning + evening anchors) so the dashboard is never empty on day one.
 
-### 7.5 Tech choices **[PARTIAL]**
+### 7.5 Long-term memory: ensuring every log reaches `user_profile.json` **[ANSWERED]**
+
+The concern: dashboard inputs that only land in `daily/<date>.json` would never feed the rule-promotion pipeline, because reflection (§8.3) reads the journal. Closing this gap requires two contracts, both runtime-enforced:
+
+**(1) Dual-write on every dashboard submission.** Each form submission writes to *both*:
+- `daily/YYYY-MM-DD.json` — the structured record (authoritative for numeric values).
+- `journal/YYYY-MM-DD.md` — a mirror line under role `Dashboard` (canonical audit log).
+
+The mirror format is fixed: `[<field>] <value>` (one line per field changed). Defined in `schemas/journal_entry.schema.md`. The dashboard API performs both writes atomically — neither is optional. This means **the journal alone is sufficient to reconstruct what the user logged**, regardless of surface.
+
+**(2) Reflection reads both sources.** The nightly reflection Routine (§8.2) reads:
+- `journal/*.md` (last 7d) — for verbatim user input, agent reasoning, system events. Provides context and natural-language signal.
+- `daily/*.json` (last 14d) — for quantitative trends (sleep quality moving average, caffeine timing distribution, routine compliance rate). Provides numeric signal.
+
+Both feed the same output: a list of `MemoryAction` deltas applied to `user_profile.json`.
+
+**The unified promotion path (works identically for mobile + dashboard inputs):**
+
+```
+              ┌─────────────────┐         ┌────────────────────┐
+mobile ──────▶│ journal/<d>.md  │────┐    │                    │
+              │ (User role)     │    │    │  Reflection        │      ┌─────────────────────┐
+              └─────────────────┘    │    │  Routine (nightly) │      │  user_profile.json  │
+                                     ├───▶│                    │─────▶│  rules (durable)    │
+              ┌─────────────────┐    │    │  reads journal/    │      │                     │
+dashboard ───▶│ daily/<d>.json  │    │    │  AND daily/        │      │  PENDING (< 0.5)    │
+              │ (structured)    │────┤    │                    │      └─────────────────────┘
+              └─────────────────┘    │    └────────────────────┘                │
+                       ▲             │                                          │
+                       │             │                                          ▼
+              ┌─────────────────┐    │                                  ┌───────────────┐
+              │ journal/<d>.md  │◀───┘                                  │ Dashboard     │
+              │ (Dashboard role)│                                       │ PENDING queue │
+              │ — mirror write  │                                       │ (one-tap      │
+              └─────────────────┘                                       │  approve/rej) │
+                                                                        └───────────────┘
+```
+
+What this gives:
+- **No orphan inputs.** Every keystroke and every tap is in the journal and (if structured) the daily file. Reflection sees all of it.
+- **Single audit log.** "What did the user do at 8am?" is one grep against `journal/*.md`, never two.
+- **Quantitative + qualitative signal in the same pipeline.** "User logged caffeine after 14:00 on 5 of last 7 days" (from `daily/*.json`) and "User said 'I'm trying to cut afternoon coffee'" (from `journal/*.md`) can both inform the same PENDING rule.
+- **Surface-agnostic.** Adding a third surface later (voice, wearable) just means another writer that produces journal entries; reflection doesn't change.
+
+What it does NOT do:
+- Auto-promote dashboard data into durable rules without reflection. Single observations are still observations, not rules — the N-of-M threshold from §8.3 still applies.
+- Override the user. Promotions ≥ 0.5 confidence still surface in the PENDING queue for one-tap review.
+
+### 7.6 Tech choices **[PARTIAL]**
 **Constraints implied by §4.6:**
 - Must be reachable from the same device as the mobile app (so: web, not a desktop-only app).
 - Reads and writes the same files in optimind-journal that the agent uses (`user_profile.json`, `state.json`, `journal/YYYY-MM-DD.md`) — through a thin API or direct repo commits.
@@ -363,15 +414,17 @@ Per §4.6, all proactive / periodic behavior is owned here, not by any interacti
 
 ### 8.3 Memory-update pipeline (concrete)
 
-This is the journal → memory loop we discussed, mapped to the schedule above:
+This is the journal → memory loop, mapped to the schedule above. The data-flow diagram and dual-write contract live in §7.5; this is the temporal sequence:
 
-1. **Capture** (interactive, all day) — verbatim `User` entries via the `UserPromptSubmit` hook; structured `dashboard` entries via the dashboard's API.
-2. **Reflect** (22:00 Routine) — Analyst reads the last 7 days, emits a list of `MemoryAction` deltas. Auto-applies at PENDING confidence; queues anything ≥ 0.5 for human review.
+1. **Capture** (interactive, all day):
+   - Mobile → `UserPromptSubmit` hook writes `User`-role line to `journal/<d>.md` (verbatim).
+   - Dashboard → API dual-writes to `daily/<d>.json` (structured) **and** `journal/<d>.md` as `Dashboard`-role line (mirror). Both writes are atomic per submission.
+2. **Reflect** (22:00 Routine) — Analyst reads **both** `journal/*.md` (last 7d) and `daily/*.json` (last 14d). Emits `MemoryAction` deltas. Auto-applies at PENDING confidence (< 0.5); queues anything ≥ 0.5 for human review.
 3. **Surface** (dashboard, async) — PENDING list appears as a review queue. User taps approve/reject; approval bumps confidence ≥ 0.5.
-4. **Reinforce** (next Reflect cycle) — repeated observation bumps `updated_at` and confidence.
+4. **Reinforce** (next Reflect cycle) — repeated observation bumps `updated_at` and confidence on existing rules.
 5. **Decay** (03:00 GHA) — rules unreinforced for 60d → confidence drop; 90d → archive.
 
-The journal is the audit log throughout — every job's apply/reject action writes a `System` entry.
+The journal is the audit log throughout — every job's apply/reject action writes a `System` entry, and every dashboard submission is mirrored as a `Dashboard` entry.
 
 ### 8.4 [INPUT NEEDED]
 - Confirm or adjust the schedule in §8.2.
@@ -387,6 +440,7 @@ The journal is the audit log throughout — every job's apply/reject action writ
 - **2026-05-27** — Periodic work owner? → **GHA for deterministic, CC Routines for agentic** — User input.
 - **2026-05-27** — Where does structured daily data live? → **New `daily/YYYY-MM-DD.json` file in optimind-journal, separate from the verbatim journal markdown** — Different timescale, writer, and reader from the existing artifacts (§7.3).
 - **2026-05-27** — How is today's plan represented? → **`protocol` block inside `daily/<date>.json`, generated each morning by the brief Routine, overridable via mobile chat** — §7.4. Three-tier semantics: rules = intent, protocol = today's plan, log = actual.
+- **2026-05-27** — How do dashboard logs reach long-term memory? → **Dual-write on every submission (`daily/<date>.json` structured + `journal/<date>.md` `Dashboard`-role mirror); reflection reads both** — §7.5. Closes the orphan-input gap; journal remains the canonical audit log across all surfaces.
 - **2026-05-27** — Slack server fate? → **Deprecate as primary; keep as optional notification channel** — Implied by mobile-first.
 - **2026-05-27** — Dashboard deployment shape? → _pending §7.3 input_
 - **2026-05-27** — Reminder channel? → _pending §8.4 input_
