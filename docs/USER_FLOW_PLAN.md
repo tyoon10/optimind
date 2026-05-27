@@ -45,18 +45,23 @@ Bound at runtime via `OPTIMIND_JOURNAL_PATH`. See `schemas/optimind_interface.md
 | Agent-written log entries | `mcp__optimind__log_entry` (model-chosen content, with dedup) |
 | State (mode + constraints + focus) | `get_state` / `set_state` over `state.json`; modes: `STANDARD`, `EXAM_MODE`, `DEEP_WORK`, `RECOVERY` |
 | Preference rules | `get_rules` / `add_rule` / `delete_rule` over `user_profile.json`; PENDING semantics at confidence `< 0.5` |
+| Structured daily logs | _not yet implemented — see §7.3 for proposed `daily/YYYY-MM-DD.json` artifact_ |
+| Today's protocol | _not yet implemented — see §7.4_ |
 | Subagent delegation | `nutritionist`, `scheduler`, `analyst` defined in `.claude/agents/` (generic) + override layer in optimind-journal |
 | Web search | Enabled on main + nutritionist + analyst |
 | Git sync of journal | `sync_hook` commits + pushes the optimind-journal repo after each turn |
 
-### Not yet built (prioritized after §4.6 + §8 decisions)
+### Not yet built (prioritized after §4.6 + §7 + §8 decisions)
 
-**Near-term, unblocks the new architecture:**
-1. **`SessionStart` hook** in optimind that clones/pulls optimind-journal and sets `OPTIMIND_JOURNAL_PATH` — without this, CC mobile sessions can't see personal data.
-2. **`.mcp.json`** at repo root so any CC session auto-registers the optimind MCP server (journal/state/preference tools).
-3. **Dashboard MVP** — capture surface for sleep score, mode toggle, supplement checklist (per §7).
-4. **Scheduled-jobs scaffolding** — `.github/workflows/` for the GHA jobs; a `routines/` directory for CC Routine prompts (per §8).
-5. **Reflection pipeline** — `scripts/reflect.py` that the 22:00 Routine invokes; emits `MemoryAction` deltas applied via existing tools.
+**Near-term, unblocks the new architecture (in dependency order):**
+1. **`schemas/daily_log.schema.json`** — formal schema for `daily/YYYY-MM-DD.json` (§7.3). Nothing else can land cleanly without this.
+2. **Daily-log MCP tools** — `get_daily`, `log_field` (sleep/meal/caffeine/routine/workout), `set_protocol`. Mirror the existing tool pattern; read/write via `OPTIMIND_JOURNAL_PATH`.
+3. **`SessionStart` hook** in optimind that clones/pulls optimind-journal and sets `OPTIMIND_JOURNAL_PATH` — without this, CC mobile sessions can't see personal data.
+4. **`.mcp.json`** at repo root so any CC session auto-registers the optimind MCP server.
+5. **Morning brief Routine** — generates today's `protocol` (§7.4). Validates the whole pipeline end-to-end before the dashboard ships.
+6. **Dashboard MVP — "Today" view only** — protocol checklist + the four logging forms (sleep, meal/caffeine, routine, workout). No trends, no rule mgmt yet.
+7. **Scheduled-jobs scaffolding** — `.github/workflows/` for the GHA jobs; a `routines/` directory for CC Routine prompts (per §8).
+8. **Reflection pipeline** — `scripts/reflect.py` that the 22:00 Routine invokes; emits `MemoryAction` deltas applied via existing tools.
 
 **Mid-term:**
 - Calendar integration (read-only) for morning brief
@@ -139,21 +144,27 @@ Each interactive session is **ephemeral**: a fresh container, fresh clone of opt
 >
 > _The flows below are seeds — examples of the kind of thing to define. Replace, reorder, delete, expand._
 
-### Flow A: Morning brief
-- **Trigger:** _[Push at 7:00? User opens Slack first thing? Dashboard load?]_
-- **Steps:** _[What does the user see / do?]_
-- **System reads:** last 24h journal, state.json, today's calendar (if integrated), user_profile rules tagged `scheduling`
-- **System writes:** today's journal opens with a System entry; possibly a state mode change
-- **Success:** _[user has a clear top-3 plan within 90 seconds]_
-- **Failure mode:** _[what does a broken version look like? Stale data? Generic advice? Overwhelm?]_
+### Flow A: Morning brief & protocol generation **[GROUNDED — partial]**
+- **Trigger:** 05:55 ET CC Routine runs (before user wakes).
+- **Steps (system):**
+  1. Routine reads `state.json`, `user_profile.json` rules tagged `scheduling` / `routine`, last 24h `journal/*.md`, any mobile_override from yesterday's session.
+  2. Generates `protocol.items[]` for today's `daily/<date>.json` (per §7.4).
+  3. Writes a `System` entry to today's journal: one-line summary + a link/anchor to the daily file.
+- **Steps (user, ~06:30):**
+  1. Opens dashboard "Today" view → sees protocol as an ordered checklist with time windows.
+  2. (Optional) Reads brief markdown on mobile if they want narrative + reasoning.
+- **Success:** Protocol exists by wake; user has a single screen showing today's plan within 5 seconds of opening dashboard.
+- **Failure mode:** Routine didn't run (no protocol) → dashboard shows default; mark it visually so user knows it's not personalized. Protocol exists but is generic / ignores recent journal context → tune the Routine's reading scope, not the prompt.
 
-### Flow B: In-the-moment logging
-- **Trigger:** _[Just ate, just finished a workout, just took a supplement]_
-- **Steps:** _[Voice? Typed shorthand? Photo? What's the minimum input?]_
-- **System reads:** existing journal for dedup, relevant rules for validation
-- **System writes:** journal entry, possibly an `add_rule` PENDING candidate
-- **Success:** _[<5 seconds, no friction, confirmation visible]_
-- **Failure mode:** _[friction high enough that user stops logging]_
+### Flow B: In-the-moment logging **[ANSWERED]**
+- **Trigger:** Event happens (woke up, ate, finished workout, took supplement).
+- **Steps:**
+  - **Structured (default):** Dashboard → tap the relevant row in "Today" → form prefilled with `time = now` → adjust + submit. Writes `daily/<date>.json` via the dashboard API.
+  - **Flexible (when structured doesn't fit):** Open CC mobile → "logged: cold shower 7:35, felt foggy after". Session writes verbatim to `journal/<date>.md` (UserPromptSubmit hook) AND parses the structured part into `daily/<date>.json` via `log_entry`-equivalent tool.
+- **System reads:** existing `daily/<date>.json` for dedup; rules for validation (e.g., "caffeine after 2 PM" rule → warn).
+- **System writes:** `daily/<date>.json`; if validation surfaces a rule violation, a journal entry capturing the deviation.
+- **Success:** Structured log < 3 taps; flexible log < 10s including the rule-check feedback.
+- **Failure mode:** Form has too many required fields → user abandons. Mitigation: every field is optional except the one being logged.
 
 ### Flow C: Reactive consultation
 - **Trigger:** _[3 PM energy crash, headache, can't focus, sleep tracker shows 5h]_
@@ -212,24 +223,107 @@ Each interactive session is **ephemeral**: a fresh container, fresh clone of opt
 > _A dashboard is a different surface than chat. Decide what it's for: at-a-glance review? Data entry? Tweaking rules? All three?_
 
 ### 7.1 Purpose
-**[ANSWERED — capture-first; review/management secondary]**
+**[ANSWERED]**
 
-Per §4.2, the dashboard's primary job is **standardized input** — the things mobile chat does poorly:
-- [x] **Capture surface (primary)** — sliders, dropdowns, checklists, photos. Logs structured values directly to optimind-journal (sleep score, meal composition, supplement checklist, mode toggle).
-- [x] **Mode + state control** — single-tap EXAM_MODE / DEEP_WORK / RECOVERY; constraint chips.
-- [x] **Rule management** — resolve PENDING rules surfaced by scheduled reflection (§10); see / promote / archive durable rules.
-- [ ] **Review surface (secondary)** — trends, journal browser. Useful but not the reason to build the dashboard; mobile + Analyst subagent can cover most read needs initially.
+Two responsibilities, equal weight:
 
-The dashboard does **not** host conversational Q&A. Anything that wants prose goes to mobile.
+**(a) Easy structured logging.** Tap-driven entry for the things that are tedious to type:
 
-### 7.2 Candidate views (seeded — keep, drop, add)
-- **Today** — current state badge, today's journal so far, calendar context, top-3 plan
-- **Trends** — sleep, energy, focus, caffeine, workouts plotted over 30/90 days
-- **Rules** — sortable list with confidence + last reinforced; PENDING quarantine area
-- **Journal browser** — date picker, grep box, role filter (User/Agent/System)
-- **Memory diff** — pending Analyst-proposed rule changes with one-tap apply/reject
+| Domain | Fields |
+|---|---|
+| Sleep | `bedtime`, `wake_time`, `sleep_quality` (0–10 or label) |
+| Nutrition | `meal` (time + items), `caffeine` (time + amount), `snack` (time + items) |
+| Routine checklist | `sunlight_exposure`, `cold_shower`, `meditation` (each: done/skipped + optional time + optional duration) |
+| Workout | `time`, `duration`, `type` (strength / cardio / mobility / other), optional notes |
 
-### 7.3 Tech choices **[PARTIAL]**
+These are daily-resetting fields with a fixed schema — exactly the kind of capture that doesn't fit a chat interface. See §7.4 for the underlying data model.
+
+**(b) Display and monitor today's protocol.** A single "Today" view that shows the user what they're supposed to do, in what order, and tracks completion as logs come in. The protocol is:
+- **Generated** from current goals (§3), durable rules tagged `scheduling`, and `state.json` mode.
+- **Overridable** for today via CC mobile (e.g., "skip workout — I'm sick"). Overrides persist only for today's `daily/<date>.json`.
+- **Default** when no override exists: a baseline derived from rules.
+
+The protocol view IS the dashboard home. Logging happens inline against it: each row is "expected → actual" and the user taps a row to log completion.
+
+Rule of thumb: **rules describe intent; protocol describes today's plan; daily log describes what happened.** Three artifacts, three timescales.
+
+### 7.2 Views (refined)
+
+**Primary — the home screen, used daily:**
+- **Today** — current state badge (mode + constraints), today's protocol as a checklist (expected vs actual per item), inline log capture for sleep / meals / caffeine / routine / workout. Time-of-day ordering: morning routine at top, evening at bottom.
+
+**Secondary — used weekly or on-demand:**
+- **Trends** — sleep, energy, caffeine, workouts plotted over 30 / 90d (data sourced from `daily/*.json`).
+- **Rules** — sortable list with confidence + `updated_at`; PENDING review queue at top with one-tap approve / reject (per §8.3).
+
+**Tertiary — power users / debugging:**
+- **Journal browser** — date picker, grep, role filter (User / Agent / System).
+- **Memory diff** — full Analyst-proposed deltas with rationale.
+
+### 7.3 Data model — `daily/YYYY-MM-DD.json` **[NEW ARTIFACT — proposed]**
+
+A new file per day in optimind-journal, alongside the verbatim `journal/YYYY-MM-DD.md`. Holds the structured dashboard input plus today's protocol. Will need a new schema (`schemas/daily_log.schema.json`) before implementation.
+
+Proposed shape (illustrative — to be ratified in the schema):
+
+```json
+{
+  "schema_version": "1.0",
+  "date": "2026-05-27",
+  "tz": "America/New_York",
+  "protocol": {
+    "generated_at": "2026-05-27T05:55:00-04:00",
+    "source": "default | mobile_override | rule_derived",
+    "items": [
+      {"id": "sunlight",   "expected_window": "06:30-07:30", "duration_min": 10},
+      {"id": "cold_shower","expected_window": "07:00-08:00"},
+      {"id": "meditation", "expected_window": "07:30-08:00", "duration_min": 10},
+      {"id": "workout",    "expected_window": "08:00-09:30", "type": "strength"},
+      {"id": "deep_work",  "expected_window": "09:30-12:00", "duration_min": 150}
+    ]
+  },
+  "log": {
+    "sleep":   {"bedtime": "23:14", "wake_time": "06:42", "quality": 7},
+    "meals":   [{"time": "08:30", "items": "eggs, oats, blueberries"}],
+    "caffeine":[{"time": "08:14", "amount_mg": 95, "source": "espresso"}],
+    "snacks":  [],
+    "routine": {
+      "sunlight":   {"done": true,  "time": "07:10", "duration_min": 12},
+      "cold_shower":{"done": true,  "time": "07:35"},
+      "meditation": {"done": false}
+    },
+    "workouts":[{"time": "08:05", "duration_min": 50, "type": "strength"}]
+  }
+}
+```
+
+Why a separate file (not front-matter on the markdown journal or new fields in user_profile.json):
+
+- **Different timescale.** journal is append-only verbatim; user_profile is durable; daily is daily-resetting structured. Mixing them violates the role contract (§ journal_entry.schema.md).
+- **Different writer.** journal is written by the runtime + verbatim hook; user_profile by rule tools; daily by the dashboard API + a few targeted tools.
+- **Different reader.** Trends and protocol-monitoring read `daily/*.json` directly without parsing markdown.
+
+The journal still gets a one-line `System` summary when a daily log is finalized — preserving the audit-log property.
+
+### 7.4 The "protocol for the day" concept **[NEW — proposed]**
+
+A derived plan, regenerated each morning:
+
+| Input | Role |
+|---|---|
+| `user_profile.json` rules tagged `scheduling` or `routine` | Standing intent (e.g., "morning sunlight within 30min of wake") |
+| `state.json` mode + constraints | Mode-shaping (EXAM_MODE → drop workout, extend deep work) |
+| Goals from §3 | Long-horizon shaping (training plan, sleep targets) |
+| Calendar (future integration) | Hard time windows |
+| Mobile override from yesterday's CC mobile chat | "Tomorrow skip workout, I'm flying" |
+
+Generation owner: the **morning brief Routine** (§8.2) writes `protocol` into today's `daily/<date>.json` at ~05:55 ET. Dashboard reads that file when the user opens it.
+
+Override mechanism: the user tells CC mobile "today, skip X and add Y". The session writes an override into `daily/<date>.json` (the next morning's Routine sees `source: mobile_override` and respects it). If the dashboard shows protocol items, completed/incomplete state lives in `log.routine.*` — completion is logged when the user taps a checkbox or when the agent matches a journal entry.
+
+If nothing has been generated and no override exists, the dashboard falls back to a hard-coded **default protocol** (basic morning + evening anchors) so the dashboard is never empty on day one.
+
+### 7.5 Tech choices **[PARTIAL]**
 **Constraints implied by §4.6:**
 - Must be reachable from the same device as the mobile app (so: web, not a desktop-only app).
 - Reads and writes the same files in optimind-journal that the agent uses (`user_profile.json`, `state.json`, `journal/YYYY-MM-DD.md`) — through a thin API or direct repo commits.
@@ -260,7 +354,7 @@ Per §4.6, all proactive / periodic behavior is owned here, not by any interacti
 
 | Schedule | Job | Runs in | Reads | Writes |
 |---|---|---|---|---|
-| Daily 06:00 ET | Morning brief generator | CC Routine | last 24h journal, state, rules tagged `scheduling`, today's calendar (if integrated) | journal `System` entry: brief markdown |
+| Daily 05:55 ET | Morning brief + protocol generation | CC Routine | last 24h journal, state, rules tagged `scheduling`/`routine`, mobile_override from yesterday | `daily/<date>.json` `protocol` block; journal `System` entry: brief markdown |
 | Daily 22:00 ET | Reflection (PENDING candidates) | CC Routine (Analyst subagent) | last 7d journal | `user_profile.json` PENDING rules (confidence < 0.5) |
 | Sunday 18:00 ET | Weekly trend report | CC Routine (Analyst) | last 14d journal | journal `System` entry: report; notification → mobile |
 | Hourly | Anomaly check | GHA (deterministic) | today's journal + thresholds in user_profile | notification on threshold breach |
@@ -291,6 +385,8 @@ The journal is the audit log throughout — every job's apply/reject action writ
 
 - **2026-05-27** — Primary surface? → **CC mobile (flexible) + dashboard (structured)** — User input; Slack server deprecated as primary.
 - **2026-05-27** — Periodic work owner? → **GHA for deterministic, CC Routines for agentic** — User input.
+- **2026-05-27** — Where does structured daily data live? → **New `daily/YYYY-MM-DD.json` file in optimind-journal, separate from the verbatim journal markdown** — Different timescale, writer, and reader from the existing artifacts (§7.3).
+- **2026-05-27** — How is today's plan represented? → **`protocol` block inside `daily/<date>.json`, generated each morning by the brief Routine, overridable via mobile chat** — §7.4. Three-tier semantics: rules = intent, protocol = today's plan, log = actual.
 - **2026-05-27** — Slack server fate? → **Deprecate as primary; keep as optional notification channel** — Implied by mobile-first.
 - **2026-05-27** — Dashboard deployment shape? → _pending §7.3 input_
 - **2026-05-27** — Reminder channel? → _pending §8.4 input_
