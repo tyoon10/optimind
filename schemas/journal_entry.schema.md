@@ -24,6 +24,18 @@ Each entry is a markdown H3 header followed by free-form content:
 - `<role>` — one of: `User`, `Agent`, `System`.
 - `<content>` — free-form markdown. The agent SHOULD use the grep-signal keywords below for any structured observation.
 
+## Role write contract
+
+The three roles have different authorship guarantees. Tools that parse the journal can rely on these:
+
+| Role     | Written by                                        | Guarantee                                                                                                  |
+|----------|---------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| `User`   | The runtime, on `UserPromptSubmit` (before the model sees the turn) | **Verbatim.** The full prompt string is appended exactly as the user sent it — no truncation, summarization, redaction, or dedup. |
+| `Agent`  | The model, via the `log_entry` tool               | Model-chosen content (may paraphrase). Subject to the dedup heuristic in `log_entry`.                      |
+| `System` | The runtime, via Stop / sync / other hooks        | Fixed strings like `[Agent session turn completed]`. Never contains user data.                             |
+
+This means `User`-role entries are the canonical, untampered record of what the user actually said. Downstream tools (Analyst subagent, audits, exports) should treat `User` lines as ground truth.
+
 ## Grep-signal keyword table
 
 The following lowercased keywords are the **authoritative vocabulary** the Analyst greps for. New entries SHOULD use these spellings exactly. Synonyms are explicitly forbidden — if a new concept appears, add it to this table first, don't invent a variant.
