@@ -21,7 +21,7 @@ Each entry is a markdown H3 header followed by free-form content:
 ```
 
 - `HH:MM` — 24-hour local time, in the same timezone as the filename.
-- `<role>` — one of: `User`, `Agent`, `System`.
+- `<role>` — one of: `User`, `Agent`, `Dashboard`, `System`.
 - `<content>` — free-form markdown. The agent SHOULD use the grep-signal keywords below for any structured observation.
 
 ## Role write contract
@@ -32,7 +32,7 @@ The four roles have different authorship guarantees. Tools that parse the journa
 |-------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
 | `User`      | The runtime, on `UserPromptSubmit` (before the model sees the turn)     | **Verbatim.** The full prompt string is appended exactly as the user sent it — no truncation, summarization, redaction, or dedup. |
 | `Agent`     | The model, via the `log_entry` tool                                     | Model-chosen content (may paraphrase). Subject to the dedup heuristic in `log_entry`.                      |
-| `Dashboard` | The runtime, via the dashboard API on a form submission                 | **Faithful round-trip of the structured input.** Format: `[<field>] <value>` (e.g. `[sleep.wake_time] 06:42`). One line per field changed in the submission. Mirror of the write made to `daily/YYYY-MM-DD.json`. |
+| `Dashboard` | The runtime, via the `log_field` dual-write — from the dashboard API, a chat session, or any future surface | **Faithful round-trip of a structured field write.** Format: `[<field>] <value>` (e.g. `[sleep.wake_time] 06:42`). One line per field written. Always mirrors the corresponding write to `daily/YYYY-MM-DD.json`. The role marks *structured capture*, not the surface it came from — a chat turn in which the agent calls `log_field` produces both a verbatim `User` line and a `Dashboard` mirror line. |
 | `System`    | The runtime, via Stop / sync / other hooks                              | Fixed strings like `[Agent session turn completed]`. Never contains user data.                             |
 
 This means the journal is the **canonical audit log** of every interaction with the system, regardless of which surface the user came in through. `User` and `Dashboard` lines together are the complete record of what the user actually said or logged; `Agent` and `System` lines record what the system did about it. Downstream tools (Analyst subagent, reflection, audits, exports) should treat `User` + `Dashboard` as ground truth.
