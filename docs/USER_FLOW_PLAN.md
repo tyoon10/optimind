@@ -374,18 +374,69 @@ What it does NOT do:
 - Auto-promote dashboard data into durable rules without reflection. Single observations are still observations, not rules — the N-of-M threshold from §8.3 still applies.
 - Override the user. Promotions ≥ 0.5 confidence still surface in the PENDING queue for one-tap review.
 
-### 7.6 Tech choices **[PARTIAL]**
-**Constraints implied by §4.6:**
-- Must be reachable from the same device as the mobile app (so: web, not a desktop-only app).
-- Reads and writes the same files in optimind-journal that the agent uses (`user_profile.json`, `state.json`, `journal/YYYY-MM-DD.md`) — through a thin API or direct repo commits.
-- Auth: single-user; whatever's simplest (GitHub OAuth piggybacking on the repo's existing PAT, or a static token).
+### 7.6 Tech choices **[ANSWERED — recommendation pending 4 open decisions]**
 
-**[INPUT NEEDED] — pick a deployment shape:**
-- **Option A: GitHub Pages + GHA writeback.** Static site reads the journal repo via the GitHub API; form submissions trigger a GHA that commits to optimind-journal. Zero servers, free hosting, slight latency on writes (~30s for the action to run).
-- **Option B: Tiny FastAPI backend in optimind-sdk + Vercel/Fly frontend.** Reuses the existing Python codebase and tool functions. Sub-second writes. Needs a deployed service.
-- **Option C: Anthropic-hosted artifact / Streamlit.** Lowest code; weakest control over UX.
+**Workflow anchor.** The dashboard's primary loop is event capture from a phone, 10–30 times a day, often one-handed and on the move:
 
-Recommendation pending §4 inputs; **default leaning is Option A** unless you want sub-second feedback on dashboard writes.
+```
+unlock → tap home-screen icon → see today's protocol
+→ tap "caffeine" → time prefilled to now → adjust → submit
+→ confirmation flashes → close. < 5s, < 4 taps.
+```
+
+Three things determine whether this works in practice: **write latency** (< ~1s to feel snappy), **mobile-native UX** (installable PWA, native time pickers, no full-page reruns), and **offline reliability** (subway case must not drop writes).
+
+**Axes of choice.** Every option is a combination of:
+- Frontend type — static SPA vs server-rendered.
+- Where writes go — direct GitHub API vs backend wrapping the existing MCP tools.
+- Hosting — static (Pages/Cloudflare), serverless container (Fly/Railway), self-hosted, or app-store native.
+- Auth — GitHub OAuth, PAT in localStorage, shared secret to backend, or zero-trust gating.
+
+#### Options compared
+
+| # | Stack | Latency | Ops burden | UX | Reuses Python tools | Fit |
+|---|---|---|---|---|---|---|
+| **1** | **Static PWA + GitHub API (no backend)** — SvelteKit + Octokit, Cloudflare Pages, GitHub OAuth | 400–800 ms / write (two PUTs) | None — git is the infra | Native PWA feel | No (re-implements dual-write in JS) | **Recommended v1** |
+| **2** | **Static PWA + tiny FastAPI backend** — same frontend; backend wraps existing MCP tools, persistent clone of optimind-journal, batched commits | Sub-100 ms | One small service to keep up (Fly/Railway free tier sleeps; ~$5/mo always-on) | Same as 1, snappier | **Yes** — single source of truth for write logic | **Migrate target when needs exceed 1** |
+| 3 | **Streamlit / Reflex / Gradio** — Python-only, server-rerun on each interaction | ~1–2 s | Low (managed cloud) | Poor on mobile, not PWA-installable | Yes | Prototype-only; do not ship |
+| 4 | **Local PWA + Tailscale (self-hosted)** — option 2 stack, backend on Mac or Pi | <50 ms on LAN, dead off-network | Highest — need a 24/7 host | Same as 2 | Yes | Only if you already run a home server |
+| 5 | **Native iOS/Android (Expo/RN)** — true native app | Sub-100 ms | App-store overhead, build pipeline | Best possible (widgets, lock-screen, push) | Via backend | Defer; PWA is 90% there at 10% effort |
+
+#### Recommendation
+
+**Start with Option 1. Migrate to Option 2 when you have a reason.**
+
+Why Option 1 first:
+- Matches the operational model you've already chosen (git-as-infrastructure, no long-running server). Adding a backend pulls focus from product work.
+- 400–800 ms is fine for tap-and-close logging. The slowness only matters for UX you're not building (real-time sliders, sub-second analytics).
+- Validates the entire flow (mobile UX, dual-write, schema correctness) without infra. If a field is wrong, you find out without paying a deployment tax.
+- Sunk cost near zero. If it doesn't work after two weeks of real use, the frontend ports unchanged to Option 2 — only the write target changes.
+
+Migration triggers (when to move to Option 2):
+- You want features needing server compute (meal-photo OCR, Apple Health pull, embeddings).
+- The two-PUT latency or the commit-log noise becomes an irritant.
+- You want one backend serving dashboard + Routines + notifications.
+
+#### Stack picks for Option 1
+
+| Concern | Pick | Why |
+|---|---|---|
+| Framework | **SvelteKit** (static adapter) | Small bundle, strong PWA story, less ceremony than Next |
+| Styling | **Tailwind** + a small mobile component lib (Radix headless) | Mobile-first without fighting a design system |
+| Git ops | **Octokit (GitHub REST)** in the browser | Two PUTs per submission; avoids `isomorphic-git` bundle weight |
+| Auth | **GitHub OAuth (PKCE)** scoped to optimind-journal | No shared secret, no server needed |
+| Hosting | **Cloudflare Pages** | Faster than GH Pages, free, easy custom domain |
+| PWA | **vite-plugin-pwa** | Service worker → offline + home-screen install |
+| Offline queue | **Dexie (IndexedDB)** | Queue writes when offline, flush on reconnect |
+
+Avoid in v1: Next.js App Router (overkill), Remix, any backend, ORMs, auth libraries beyond Octokit, paid component libraries.
+
+#### Open decisions (block kickoff)
+
+1. **Commit-log hygiene.** Accept the noisy git log (one commit per submission) or add a nightly GHA on optimind-journal that squashes the day's daily-log commits into one? *Lean: accept v1, add squash later if it bothers you.*
+2. **OAuth vs PAT.** GitHub OAuth PKCE is the right answer; a long-lived PAT in localStorage saves ~1 dev day. Single-user, your risk. *Lean: PAT for v0, swap to OAuth before any real use.*
+3. **Domain.** Custom subdomain (`optimind.<your-domain>`) vs `.pages.dev`? Affects OAuth callback config. *Lean: `.pages.dev` for v0; custom when domain matters.*
+4. **Offline policy.** Service worker + Dexie queue from day one, or require connectivity in v1? *Lean: build offline from day one — subway-logging is a core use case and bolting it on later is expensive.*
 
 ---
 
@@ -441,6 +492,9 @@ The journal is the audit log throughout — every job's apply/reject action writ
 - **2026-05-27** — Where does structured daily data live? → **New `daily/YYYY-MM-DD.json` file in optimind-journal, separate from the verbatim journal markdown** — Different timescale, writer, and reader from the existing artifacts (§7.3).
 - **2026-05-27** — How is today's plan represented? → **`protocol` block inside `daily/<date>.json`, generated each morning by the brief Routine, overridable via mobile chat** — §7.4. Three-tier semantics: rules = intent, protocol = today's plan, log = actual.
 - **2026-05-27** — How do dashboard logs reach long-term memory? → **Dual-write on every submission (`daily/<date>.json` structured + `journal/<date>.md` `Dashboard`-role mirror); reflection reads both** — §7.5. Closes the orphan-input gap; journal remains the canonical audit log across all surfaces.
+- **2026-05-28** — Dashboard tech stack? → **Option 1 first (static PWA + GitHub API), migrate to Option 2 (FastAPI backend) when triggered by latency, server-compute needs, or consolidation** — §7.6. Stack: SvelteKit static + Tailwind + Octokit + Cloudflare Pages + vite-plugin-pwa + Dexie offline queue + GitHub OAuth (PKCE).
+- **2026-05-28 PENDING** — Four sub-decisions in §7.6 (commit-log hygiene, OAuth vs PAT, custom domain, offline-from-day-one). Leans noted; user to confirm before VS Code kickoff.
+- **2026-05-28 PENDING** — Dashboard repo placement: new `optimind-dashboard` repo vs `optimind/dashboard/` subdir. See §10.6.
 - **2026-05-27** — Slack server fate? → **Deprecate as primary; keep as optional notification channel** — Implied by mobile-first.
 - **2026-05-27** — Dashboard deployment shape? → _pending §7.3 input_
 - **2026-05-27** — Reminder channel? → _pending §8.4 input_
@@ -448,7 +502,69 @@ The journal is the audit log throughout — every job's apply/reject action writ
 
 ---
 
-## 10. Out of scope (for now)
+## 10. Handoff to local development (CC in VS Code)
+
+This section is the working guide for the next session that opens both repos in VS Code. Read §2 + §7 + §8 first; then this is the execution plan.
+
+### 10.1 Workspace setup
+
+1. **Clone both repos side-by-side** under a single VS Code workspace (e.g., `~/code/optimind/` and `~/code/optimind-journal/`). The workspace file references both.
+2. **Set `OPTIMIND_JOURNAL_PATH`** in `~/code/optimind/optimind-sdk/.env` pointing at the local optimind-journal checkout.
+3. **Install deps** for optimind-sdk: `pip install -r optimind-sdk/requirements.txt`. Confirm `python -c "from src.config import journal_root; print(journal_root())"` returns the journal path.
+4. **Confirm the merged state** is on `main` for both repos. The current open branch (`claude/funny-lovelace-zZXSP`) carries planning + verbatim-hook + this doc — fold to `main` once reviewed.
+
+### 10.2 Branching strategy
+
+Each task in §10.3 is one feature branch + one PR. Branch names: `feat/<short-name>` for both repos when a task spans them. Use git worktrees if you want CC sessions on different tasks in parallel without thrashing the working tree.
+
+### 10.3 Task order (build list from §2, expanded)
+
+Tasks 1–2 are **prerequisite to all dashboard work** — finish before opening any dashboard PR. Tasks 5 and 6 can run in parallel once 1–4 land.
+
+| # | Task | Repo(s) | Depends on | Done when |
+|---|---|---|---|---|
+| 1 | `schemas/daily_log.schema.json` | optimind | — | Schema validates an example `daily/<date>.json`; matches §7.3 illustrative shape; `additionalProperties: false`; topic vocab from `schemas/journal_entry.schema.md` reused for tags. |
+| 2 | Daily-log MCP tools with dual-write | optimind (`optimind-sdk/src/tools/daily.py`) | 1 | `log_field(field, value, time?)` writes to `daily/<date>.json` **and** appends `### HH:MM \| Dashboard\n[<field>] <value>` to `journal/<date>.md`. Unit test verifies both writes per call. `get_daily(date?)` and `set_protocol(items)` round-trip cleanly. Tools registered in MCP server name list. |
+| 3 | `SessionStart` hook | optimind | 2 | `python -m claude_agent_sdk` (or CC mobile session) opens with `OPTIMIND_JOURNAL_PATH` set; if unset and a default journal repo URL is configured, hook clones/pulls before first tool call. Idempotent. |
+| 4 | `.mcp.json` at optimind repo root | optimind | 2 | A fresh CC session in a clone of optimind auto-registers the optimind MCP server. Verified by running `claude` in a sibling clone and checking `mcp__optimind__*` tools appear. |
+| 5 | Morning brief Routine | optimind (`routines/morning_brief.md`) | 3, 4 | Routine prompt produces a valid `protocol.items[]` block, writes it via `set_protocol`, and appends a `System` brief line to the journal. Tested locally with a backdated journal. |
+| 6 | Dashboard MVP — "Today" view | new repo `optimind-dashboard` (or `optimind/dashboard/`) | 2, 4 (does NOT need 3 or 5 — can stub protocol) | PWA installs to home screen; "Today" shows protocol checklist + 4 logging forms; submissions call `daily-log` tools via either (a) GitHub API directly or (b) a thin backend wrapper. Per §7.6 recommendation, ship with Option 1 stack. |
+| 7 | Scheduled-jobs scaffolding | optimind (`.github/workflows/`, `routines/`) | 5 | One GHA workflow per deterministic job in §8.2 (decay, lint); one Routine markdown per agentic job. All on dry-run cadence at first. |
+| 8 | Reflection pipeline | optimind (`scripts/reflect.py`) | 2, 7 | Reads 7d journal + 14d daily files; emits a list of `MemoryAction` objects; applies safe ones via `add_rule` / `delete_rule`. Dry-run flag writes proposals without applying. |
+
+### 10.4 Parallel-agent strategy
+
+In VS Code you can run multiple CC sessions side-by-side. Useful pairings:
+
+- **Session A (this repo):** Task 1 (schema) → Task 2 (MCP tools). Sequential.
+- **Session B (after A finishes task 2):** Task 3 (SessionStart hook) + Task 4 (.mcp.json). Independent; can interleave.
+- **Session C (new dashboard repo):** Task 6 (dashboard MVP). Starts the moment Task 2 merges. Can ship before tasks 3/5 land — stub the protocol with hard-coded JSON for local dev.
+- **Session D (when 5+6 are stable):** Task 7 (workflows) + Task 8 (reflection script).
+
+### 10.5 Acceptance gates per task
+
+Before merging any task PR:
+
+- **Tasks 1–2:** unit tests around dual-write and schema validation pass; manually inspect a real `daily/<date>.json` write *and* the corresponding `journal/<date>.md` mirror line.
+- **Tasks 3–4:** open a fresh CC session in a tmpdir clone of optimind; verify `OPTIMIND_JOURNAL_PATH` resolves and MCP tools appear without manual config.
+- **Task 5:** run the Routine prompt against a fixture journal (cp 7 days of fake markdown into a temp journal repo); inspect the generated protocol.
+- **Task 6:** install PWA on phone; complete the 5-second tap-and-close flow for each of the 4 logging forms; verify dual-write actually committed to optimind-journal.
+- **Tasks 7–8:** dry-run mode shows reasonable proposals against your real journal for ≥1 week before flipping to auto-apply.
+
+### 10.6 What to confirm with the user (you, in chat) before kickoff
+
+Before VS Code CC starts task 1, decide:
+
+- §3 goals (shapes the Morning brief Routine's prompt)
+- §7.6 open decisions: PAT-vs-OAuth, custom domain or `.pages.dev`, offline-from-day-one or not, accept commit-log noise or add squash
+- §8.4 reminder channel
+- Whether the dashboard lives in a new `optimind-dashboard` repo (cleaner separation) or in `optimind/dashboard/` (simpler ops)
+
+Once those answers are in §9 (decisions log), VS Code CC has everything it needs.
+
+---
+
+## 11. Out of scope (for now)
 
 > _Things we've explicitly deferred. Write them down so they don't keep coming back as "wait, should we…?"_
 
