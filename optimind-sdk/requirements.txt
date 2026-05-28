@@ -4,6 +4,9 @@ slack-bolt>=1.18.0
 fastapi>=0.100.0
 uvicorn>=0.23.0
 
+# Standalone stdio MCP server (bin/optimind_mcp_server.py) exposed via .mcp.json
+mcp>=1.0.0
+
 # Preserved from v1
 python-dotenv>=1.0.0
 pytz>=2024.1
