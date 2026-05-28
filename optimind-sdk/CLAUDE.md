@@ -93,6 +93,10 @@ Every user message is appended to `<journal>/journal/YYYY-MM-DD.md` verbatim by 
 
 The base prompt in `.claude/agents/<name>.md` is generic and personal-data-free. If `<OPTIMIND_JOURNAL_PATH>/.claude/agents/<name>.md` exists, its body is appended as an override (e.g. "Before You Answer, read `user_profile.json` and …"). See `schemas/optimind_interface.md` for details.
 
+### Repo convention: `.gitignore` and JSON
+
+The root `.gitignore` blanket-ignores `*.json` to keep personal data (`user_profile.json`, `state.json`, journal data) out of the optimind repo. **Schema and config JSON are exempted by explicit negations** (`!schemas/*.json`, `!.mcp.json`, `!**/package.json`, `!**/tsconfig.json`). When adding any new JSON that *should* be tracked (a new schema, an MCP config, a dashboard `package.json`), confirm it isn't silently ignored: run `git check-ignore <path>` — if it prints the path, add a negation. After `git add`, verify with `git status` that the file is actually staged; the blanket ignore drops matches silently with no error.
+
 ## Summary Instructions
 
 When summarizing this conversation (during compaction), always preserve:
