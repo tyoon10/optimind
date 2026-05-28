@@ -85,6 +85,10 @@ The runtime resolves the journal repo location from the `OPTIMIND_JOURNAL_PATH` 
 
 On load of `user_profile.json`, `preferences.py` checks `schema_version` against the runtime's expected version (currently `"1.0"`). Mismatch → `ValueError` with a pointer to the relevant `migrations/user_profile_<from>to<to>.py` script. Migrations are explicit, never automatic.
 
+### Verbatim user-input logging
+
+Every user message is appended to `<journal>/journal/YYYY-MM-DD.md` verbatim by the runtime — not by the model. The `UserPromptSubmit` hook (`src/hooks/user_prompt_hook.py`) fires before the model sees the turn and writes the full prompt as a `### HH:MM | User` entry with no truncation, summarization, redaction, or dedup. This is a runtime guarantee, not a model behavior: the model cannot omit, paraphrase, or skip it. See the role write contract in `schemas/journal_entry.schema.md` for what each role's entries can and cannot contain.
+
 ### Agent prompt resolution (LSP-style)
 
 The base prompt in `.claude/agents/<name>.md` is generic and personal-data-free. If `<OPTIMIND_JOURNAL_PATH>/.claude/agents/<name>.md` exists, its body is appended as an override (e.g. "Before You Answer, read `user_profile.json` and …"). See `schemas/optimind_interface.md` for details.
