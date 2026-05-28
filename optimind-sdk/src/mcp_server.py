@@ -84,7 +84,11 @@ TOOLS: dict[str, tuple[str, dict, Callable[[dict[str, Any]], str]]] = {
     ),
     "log_field": (
         "Log one structured field to the daily log AND mirror it to the journal (dual-write). "
-        "field is a dotted path (e.g. 'sleep.wake_time', 'caffeine', 'routine.cold_shower').",
+        "field is a dotted path (e.g. 'sleep.wake_time', 'caffeine', 'routine.cold_shower'). "
+        "For event categories (caffeine/meal/snack/workout) ALWAYS pass value as a structured object "
+        "matching daily_log.schema.json, never a bare string: caffeine -> {amount_mg:int, source:str} "
+        "(estimate amount_mg from the source if unstated — brewed coffee ~95mg, espresso ~65mg, "
+        "cold brew ~205mg/16oz, tea ~47mg); meal/snack -> {items:str}; workout -> {duration_min:int, type:str}.",
         {"type": "object",
          "properties": {"field": {"type": "string"}, "value": {}, "time": {"type": "string"}},
          "required": ["field", "value"]},

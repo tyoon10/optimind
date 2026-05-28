@@ -216,10 +216,14 @@ async def get_daily(args: dict[str, Any]) -> dict[str, Any]:
     "Log ONE structured field to today's daily log AND mirror it to the journal (dual-write). "
     "`field` is a dotted path under the daily 'log' object: scalars like 'sleep.wake_time', "
     "'sleep.bedtime', 'sleep.quality'; routine items like 'routine.cold_shower'; or event "
-    "categories 'caffeine', 'meal', 'snack', 'workout'. For event categories pass `value` as an "
-    "object (e.g. {\"amount_mg\": 95, \"source\": \"espresso\"}); it is appended with the time. "
-    "For scalar fields pass the value directly. `time` is optional HH:MM (defaults to now, NYC). "
-    "Use canonical keywords from journal_entry.schema.md so the Analyst's greps don't miss data.",
+    "categories 'caffeine', 'meal', 'snack', 'workout'. "
+    "For event categories ALWAYS pass `value` as a structured object matching daily_log.schema.json "
+    "— never a bare string: caffeine -> {\"amount_mg\": <int>, \"source\": <str>}; "
+    "meal/snack -> {\"items\": <str>}; workout -> {\"duration_min\": <int>, \"type\": <str>}. "
+    "If the user doesn't give the number, ESTIMATE it from the source (brewed coffee ~95mg/cup, "
+    "espresso ~65mg/shot, cold brew ~205mg/16oz, black tea ~47mg, energy drink ~80mg) and keep the "
+    "drink/food description in `source`. For scalar fields pass the value directly. `time` is "
+    "optional HH:MM (defaults to now, NYC). Use canonical keywords from journal_entry.schema.md.",
     {
         "type": "object",
         "properties": {
