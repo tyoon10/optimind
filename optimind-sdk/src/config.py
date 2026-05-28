@@ -16,6 +16,8 @@ import logging
 import os
 from dotenv import load_dotenv
 
+from src.paths import journal_root  # re-exported for backward-compat; see src/paths.py
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -78,13 +80,3 @@ class Config:
 
 
 config = Config()
-
-
-def journal_root() -> str:
-    """Module-level accessor so tools can import without a full Config()."""
-    env_path = os.getenv("OPTIMIND_JOURNAL_PATH")
-    if env_path:
-        return os.path.abspath(os.path.expanduser(env_path))
-    return os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"
-    )

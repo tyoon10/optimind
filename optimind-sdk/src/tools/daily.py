@@ -27,7 +27,7 @@ except ImportError:  # let the dual-write logic be unit-tested without the agent
             return fn
         return _decorator
 
-from src.config import journal_root
+from src.paths import journal_root
 
 TZ = pytz.timezone("America/New_York")
 TZ_NAME = "America/New_York"
@@ -180,6 +180,24 @@ def do_set_protocol(items: list, source: str = "default",
     return doc
 
 
+# --- pure text handlers (shared by the @tool wrappers and the standalone MCP server) ---
+
+def get_daily_text(args: dict[str, Any]) -> str:
+    doc = do_get_daily(args.get("date") or None)
+    return json.dumps(doc, indent=2, ensure_ascii=False)
+
+
+def log_field_text(args: dict[str, Any]) -> str:
+    res = do_log_field(args["field"], args["value"], args.get("time") or None)
+    return f"Logged [{res['field']}] at {res['time']} → {res['daily_path']} + journal mirror."
+
+
+def set_protocol_text(args: dict[str, Any]) -> str:
+    doc = do_set_protocol(args["items"], args.get("source") or "default")
+    p = doc["protocol"]
+    return f"Protocol set for {doc['date']}: {len(p['items'])} item(s), source={p['source']}."
+
+
 # --- MCP tool wrappers ---
 
 @tool(
@@ -190,8 +208,7 @@ def do_set_protocol(items: list, source: str = "default",
     {"date": str},
 )
 async def get_daily(args: dict[str, Any]) -> dict[str, Any]:
-    doc = do_get_daily(args.get("date") or None)
-    return {"content": [{"type": "text", "text": json.dumps(doc, indent=2, ensure_ascii=False)}]}
+    return {"content": [{"type": "text", "text": get_daily_text(args)}]}
 
 
 @tool(
@@ -214,9 +231,7 @@ async def get_daily(args: dict[str, Any]) -> dict[str, Any]:
     },
 )
 async def log_field(args: dict[str, Any]) -> dict[str, Any]:
-    res = do_log_field(args["field"], args["value"], args.get("time") or None)
-    return {"content": [{"type": "text", "text":
-            f"Logged [{res['field']}] at {res['time']} → {res['daily_path']} + journal mirror."}]}
+    return {"content": [{"type": "text", "text": log_field_text(args)}]}
 
 
 @tool(
@@ -234,10 +249,7 @@ async def log_field(args: dict[str, Any]) -> dict[str, Any]:
     },
 )
 async def set_protocol(args: dict[str, Any]) -> dict[str, Any]:
-    doc = do_set_protocol(args["items"], args.get("source") or "default")
-    p = doc["protocol"]
-    return {"content": [{"type": "text", "text":
-            f"Protocol set for {doc['date']}: {len(p['items'])} item(s), source={p['source']}."}]}
+    return {"content": [{"type": "text", "text": set_protocol_text(args)}]}
 
 
 daily_tools = [get_daily, log_field, set_protocol]
