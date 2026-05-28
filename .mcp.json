@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "optimind": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["optimind-sdk/bin/optimind_mcp_server.py"],
+      "env": {
+        "OPTIMIND_JOURNAL_PATH": "${OPTIMIND_JOURNAL_PATH}"
+      }
+    }
+  }
+}

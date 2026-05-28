@@ -12,9 +12,16 @@ import os
 from datetime import datetime
 from typing import Any
 
-from claude_agent_sdk import tool
+try:
+    from claude_agent_sdk import tool
+except ImportError:  # let the pure handlers be imported/tested without the agent runtime
+    def tool(name, description, input_schema):
+        def _decorator(fn):
+            fn.tool_meta = {"name": name, "description": description, "input_schema": input_schema}
+            return fn
+        return _decorator
 
-from src.config import journal_root
+from src.paths import journal_root
 
 logger = logging.getLogger(__name__)
 
@@ -71,14 +78,9 @@ def _save_profile(profile: dict):
         json.dump(profile, f, indent=2, default=str)
 
 
-@tool(
-    "get_rules",
-    "Get user preference rules, optionally filtered by topic. "
-    "Topics include: nutrition, scheduling, profile, environment. "
-    "Use this when the user's query involves a domain with known preferences.",
-    {"topic": str},
-)
-async def get_rules(args: dict[str, Any]) -> dict[str, Any]:
+# --- pure handlers (shared by the @tool wrappers and the standalone MCP server) ---
+
+def get_rules_text(args: dict[str, Any]) -> str:
     profile = _load_profile()
     rules = profile.get("rules", [])
 
@@ -88,19 +90,13 @@ async def get_rules(args: dict[str, Any]) -> dict[str, Any]:
 
     if not rules:
         label = f" for topic '{topic}'" if topic else ""
-        return {"content": [{"type": "text", "text": f"No preference rules found{label}."}]}
+        return f"No preference rules found{label}."
 
     lines = [f"- [{r['topic']}] {r['rule']} (confidence: {r.get('confidence', 1.0)})" for r in rules]
-    return {"content": [{"type": "text", "text": "\n".join(lines)}]}
+    return "\n".join(lines)
 
 
-@tool(
-    "add_rule",
-    "Add a new preference rule learned from conversation. "
-    "Use this when the user explicitly or implicitly states a preference, constraint, or habit.",
-    {"topic": str, "rule": str, "confidence": float},
-)
-async def add_rule(args: dict[str, Any]) -> dict[str, Any]:
+def add_rule_text(args: dict[str, Any]) -> str:
     profile = _load_profile()
     new_rule = {
         "topic": args["topic"],
@@ -113,20 +109,14 @@ async def add_rule(args: dict[str, Any]) -> dict[str, Any]:
     # Avoid exact duplicates
     for existing in profile.get("rules", []):
         if existing["topic"] == new_rule["topic"] and existing["rule"].lower() == new_rule["rule"].lower():
-            return {"content": [{"type": "text", "text": f"Rule already exists: [{new_rule['topic']}] {new_rule['rule']}"}]}
+            return f"Rule already exists: [{new_rule['topic']}] {new_rule['rule']}"
 
     profile.setdefault("rules", []).append(new_rule)
     _save_profile(profile)
-    return {"content": [{"type": "text", "text": f"Added rule: [{new_rule['topic']}] {new_rule['rule']}"}]}
+    return f"Added rule: [{new_rule['topic']}] {new_rule['rule']}"
 
 
-@tool(
-    "delete_rule",
-    "Delete a preference rule that is outdated or explicitly revoked by the user. "
-    "Matches by topic and fuzzy content match (case-insensitive substring).",
-    {"topic": str, "content": str},
-)
-async def delete_rule(args: dict[str, Any]) -> dict[str, Any]:
+def delete_rule_text(args: dict[str, Any]) -> str:
     profile = _load_profile()
     topic = args["topic"]
     content = args["content"].lower()
@@ -140,9 +130,42 @@ async def delete_rule(args: dict[str, Any]) -> dict[str, Any]:
     removed = initial_count - len(profile["rules"])
     if removed > 0:
         _save_profile(profile)
-        return {"content": [{"type": "text", "text": f"Removed {removed} rule(s) matching [{topic}] '{args['content']}'"}]}
+        return f"Removed {removed} rule(s) matching [{topic}] '{args['content']}'"
 
-    return {"content": [{"type": "text", "text": f"No rules found matching [{topic}] '{args['content']}'"}]}
+    return f"No rules found matching [{topic}] '{args['content']}'"
+
+
+# --- MCP tool wrappers ---
+
+@tool(
+    "get_rules",
+    "Get user preference rules, optionally filtered by topic. "
+    "Topics include: nutrition, scheduling, profile, environment. "
+    "Use this when the user's query involves a domain with known preferences.",
+    {"topic": str},
+)
+async def get_rules(args: dict[str, Any]) -> dict[str, Any]:
+    return {"content": [{"type": "text", "text": get_rules_text(args)}]}
+
+
+@tool(
+    "add_rule",
+    "Add a new preference rule learned from conversation. "
+    "Use this when the user explicitly or implicitly states a preference, constraint, or habit.",
+    {"topic": str, "rule": str, "confidence": float},
+)
+async def add_rule(args: dict[str, Any]) -> dict[str, Any]:
+    return {"content": [{"type": "text", "text": add_rule_text(args)}]}
+
+
+@tool(
+    "delete_rule",
+    "Delete a preference rule that is outdated or explicitly revoked by the user. "
+    "Matches by topic and fuzzy content match (case-insensitive substring).",
+    {"topic": str, "content": str},
+)
+async def delete_rule(args: dict[str, Any]) -> dict[str, Any]:
+    return {"content": [{"type": "text", "text": delete_rule_text(args)}]}
 
 
 preference_tools = [get_rules, add_rule, delete_rule]
