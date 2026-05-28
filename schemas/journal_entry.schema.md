@@ -24,6 +24,19 @@ Each entry is a markdown H3 header followed by free-form content:
 - `<role>` — one of: `User`, `Agent`, `System`.
 - `<content>` — free-form markdown. The agent SHOULD use the grep-signal keywords below for any structured observation.
 
+## Role write contract
+
+The four roles have different authorship guarantees. Tools that parse the journal can rely on these:
+
+| Role        | Written by                                                              | Guarantee                                                                                                  |
+|-------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| `User`      | The runtime, on `UserPromptSubmit` (before the model sees the turn)     | **Verbatim.** The full prompt string is appended exactly as the user sent it — no truncation, summarization, redaction, or dedup. |
+| `Agent`     | The model, via the `log_entry` tool                                     | Model-chosen content (may paraphrase). Subject to the dedup heuristic in `log_entry`.                      |
+| `Dashboard` | The runtime, via the dashboard API on a form submission                 | **Faithful round-trip of the structured input.** Format: `[<field>] <value>` (e.g. `[sleep.wake_time] 06:42`). One line per field changed in the submission. Mirror of the write made to `daily/YYYY-MM-DD.json`. |
+| `System`    | The runtime, via Stop / sync / other hooks                              | Fixed strings like `[Agent session turn completed]`. Never contains user data.                             |
+
+This means the journal is the **canonical audit log** of every interaction with the system, regardless of which surface the user came in through. `User` and `Dashboard` lines together are the complete record of what the user actually said or logged; `Agent` and `System` lines record what the system did about it. Downstream tools (Analyst subagent, reflection, audits, exports) should treat `User` + `Dashboard` as ground truth.
+
 ## Grep-signal keyword table
 
 The following lowercased keywords are the **authoritative vocabulary** the Analyst greps for. New entries SHOULD use these spellings exactly. Synonyms are explicitly forbidden — if a new concept appears, add it to this table first, don't invent a variant.
@@ -53,11 +66,19 @@ The following lowercased keywords are the **authoritative vocabulary** the Analy
 ## Example
 
 ```markdown
+### 06:42 | Dashboard
+[sleep.wake_time] 06:42
+[sleep.bedtime] 23:14
+[sleep.quality] 7
+
 ### 07:42 | User
 Slept 7h. sleep score 84. Skipped caffeine. Doing deep work block 8–11.
 
 ### 07:43 | Agent
 Logged. Switching to DEEP_WORK mode for the morning.
+
+### 08:14 | Dashboard
+[caffeine] 08:14 95mg espresso
 
 ### 12:15 | User
 meal: chicken + rice + greens. energy good. no caffeine yet — holding the line.
