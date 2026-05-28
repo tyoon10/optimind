@@ -20,6 +20,7 @@ from claude_agent_sdk import (
 from src.tools.journal import journal_tools
 from src.tools.state import state_tools
 from src.tools.preferences import preference_tools
+from src.tools.daily import daily_tools
 from src.subagents.definitions import SUBAGENTS
 from src.hooks.journal_hook import journal_hook_matcher
 from src.hooks.reflector_hook import reflector_hook_matcher
@@ -32,7 +33,7 @@ from src.hooks.user_prompt_hook import user_prompt_hook_matcher
 optimind_tools = create_sdk_mcp_server(
     name="optimind",
     version="2.0.0",
-    tools=journal_tools + state_tools + preference_tools,
+    tools=journal_tools + state_tools + preference_tools + daily_tools,
 )
 
 # Tool names follow the MCP convention: mcp__{server}__{tool}
@@ -48,6 +49,10 @@ TOOL_NAMES = [
     "mcp__optimind__get_rules",
     "mcp__optimind__add_rule",
     "mcp__optimind__delete_rule",
+    # Daily log (structured + dual-write mirror)
+    "mcp__optimind__get_daily",
+    "mcp__optimind__log_field",
+    "mcp__optimind__set_protocol",
 ]
 
 
