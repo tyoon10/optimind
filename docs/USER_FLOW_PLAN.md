@@ -495,6 +495,7 @@ The journal is the audit log throughout — every job's apply/reject action writ
 - **2026-05-28** — Dashboard tech stack? → **Option 1 first (static PWA + GitHub API), migrate to Option 2 (FastAPI backend) when triggered by latency, server-compute needs, or consolidation** — §7.6. Stack: SvelteKit static + Tailwind + Octokit + Cloudflare Pages + vite-plugin-pwa + Dexie offline queue + GitHub OAuth (PKCE).
 - **2026-05-28 PENDING** — Four sub-decisions in §7.6 (commit-log hygiene, OAuth vs PAT, custom domain, offline-from-day-one). Leans noted; user to confirm before VS Code kickoff.
 - **2026-05-28 PENDING** — Dashboard repo placement: new `optimind-dashboard` repo vs `optimind/dashboard/` subdir. See §10.6.
+- **2026-05-28** — `schemas/user_profile.schema.json` was silently dropped from the initial commit by the `*.json` gitignore rule. → **Added explicit gitignore negations for schema/config JSON; force-committed the file; documented the gotcha in §10.7 and CLAUDE.md** — Prevents the same silent drop for `daily_log.schema.json`, `.mcp.json`, and the dashboard `package.json` on the build list.
 - **2026-05-27** — Slack server fate? → **Deprecate as primary; keep as optional notification channel** — Implied by mobile-first.
 - **2026-05-27** — Dashboard deployment shape? → _pending §7.3 input_
 - **2026-05-27** — Reminder channel? → _pending §8.4 input_
@@ -561,6 +562,15 @@ Before VS Code CC starts task 1, decide:
 - Whether the dashboard lives in a new `optimind-dashboard` repo (cleaner separation) or in `optimind/dashboard/` (simpler ops)
 
 Once those answers are in §9 (decisions log), VS Code CC has everything it needs.
+
+### 10.7 Repo gotchas / conventions
+
+Lessons captured from setup so they don't recur:
+
+- **`.gitignore` blanket-ignores `*.json`.** This protects personal data, but it silently swallows schema/config JSON too. Negations are in place for `schemas/*.json`, `.mcp.json`, `package.json`, `tsconfig.json`. **Before committing any new tracked JSON** (e.g. `schemas/daily_log.schema.json` in Task 1, `.mcp.json` in Task 4, the dashboard's `package.json` in Task 6), run `git check-ignore <path>`; if it prints the path, add a negation to `.gitignore` first. `git add` gives no error when it skips an ignored file — always confirm with `git status` that the file actually staged. (This bit us once: `user_profile.schema.json` was dropped from the initial commit and only caught on re-clone.)
+- **The runtime resolves data via `OPTIMIND_JOURNAL_PATH`, never hard-coded paths.** Any new tool or hook that touches journal/profile/state must use `src.config.journal_root()`, not a `BASE_DIR/data` path. See `optimind-sdk/CLAUDE.md` → Runtime binding.
+- **Timestamps carry the user's offset, never bare UTC `Z`.** Enforced in `user_profile.schema.json` and `journal_entry.schema.md`.
+- **The two repos bind at runtime, not build time.** Don't add a hard dependency from optimind on optimind-journal's location; everything flows through the env var and the schemas.
 
 ---
 
