@@ -13,6 +13,13 @@ from fastapi import FastAPI, Request
 from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.fastapi.async_handler import AsyncSlackRequestHandler
 
+# Bootstrap the journal checkout before config validation: in production Config()
+# requires OPTIMIND_JOURNAL_PATH, which ensure_journal() resolves (cloning the
+# journal repo if needed) and sets in os.environ. See src/bootstrap.py.
+from src.bootstrap import ensure_journal
+
+ensure_journal()
+
 from src.config import config
 from src.agent import run_agent
 
