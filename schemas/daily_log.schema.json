@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tyoon10/optimind/schemas/daily_log.schema.json",
+  "title": "OptiMind Daily Log",
+  "description": "Canonical schema for daily/YYYY-MM-DD.json — the structured per-day record holding today's protocol (the morning-brief-generated plan) plus the structured log (sleep/meals/caffeine/snacks/routine/workouts) captured from the dashboard. One file per day in optimind-journal, alongside journal/YYYY-MM-DD.md. Authoritative for numeric values; every field written here is mirrored to journal/<date>.md as a Dashboard-role line (see journal_entry.schema.md §Role write contract). Routine/protocol item ids use the snake_case form of the canonical grep keywords in journal_entry.schema.md (e.g. cold_shower, deep_work) — do not invent synonyms.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "date", "tz"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version. Bump via a migrations/daily_log_<from>to<to>.py script."
+    },
+    "date": {
+      "$ref": "#/$defs/DateString",
+      "description": "The user's LOCAL date (US/Eastern by default), matching the journal/<date>.md filename. Never a bare-UTC-derived date."
+    },
+    "tz": {
+      "type": "string",
+      "minLength": 1,
+      "description": "IANA timezone the date and all HH:MM times are expressed in (e.g. America/New_York)."
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The plan for the day, regenerated each morning by the morning-brief Routine (§7.4). Absent until generated.",
+      "required": ["generated_at", "source", "items"],
+      "properties": {
+        "generated_at": {
+          "$ref": "#/$defs/OffsetDateTime",
+          "description": "When this protocol was generated. ISO-8601 with explicit offset; bare 'Z' is banned."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["default", "mobile_override", "rule_derived"],
+          "default": "default",
+          "description": "Provenance: default fallback, a mobile-chat override the user requested for today, or derived from user_profile rules + state."
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ProtocolItem" }
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Structured log captured during the day. All sub-fields optional — a day may be partially logged.",
+      "properties": {
+        "sleep": { "$ref": "#/$defs/Sleep" },
+        "meals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FoodEntry" }
+        },
+        "caffeine": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CaffeineEntry" }
+        },
+        "snacks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FoodEntry" }
+        },
+        "routine": {
+          "type": "object",
+          "description": "Map of routine-item id (snake_case canonical keyword) → completion record.",
+          "propertyNames": { "$ref": "#/$defs/ItemId" },
+          "additionalProperties": { "$ref": "#/$defs/RoutineItem" }
+        },
+        "workouts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Workout" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "DateString": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "LocalTime": {
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+      "description": "24-hour HH:MM local time in the file's tz."
+    },
+    "TimeWindow": {
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d-([01]\\d|2[0-3]):[0-5]\\d$",
+      "description": "HH:MM-HH:MM local window."
+    },
+    "OffsetDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}([.,]\\d+)?[+-]\\d{2}:\\d{2}$",
+      "description": "ISO-8601 datetime that MUST carry an explicit numeric offset. Bare 'Z' (UTC) is rejected by the pattern, matching the timezone binding enforced in user_profile.schema.json and journal_entry.schema.md."
+    },
+    "ItemId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "snake_case id; use the canonical grep keyword from journal_entry.schema.md (cold_shower, deep_work, sleep, caffeine, meal, workout, sauna, sunlight, meditation, ...)."
+    },
+    "ProtocolItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/ItemId" },
+        "expected_window": { "$ref": "#/$defs/TimeWindow" },
+        "duration_min": { "type": "integer", "minimum": 0 },
+        "type": { "type": "string", "minLength": 1 }
+      }
+    },
+    "Sleep": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bedtime": { "$ref": "#/$defs/LocalTime" },
+        "wake_time": { "$ref": "#/$defs/LocalTime" },
+        "quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Subjective sleep quality 1-10. Mirrored as [sleep.quality] <n>."
+        }
+      }
+    },
+    "FoodEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time", "items"],
+      "properties": {
+        "time": { "$ref": "#/$defs/LocalTime" },
+        "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "CaffeineEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time", "amount_mg"],
+      "properties": {
+        "time": { "$ref": "#/$defs/LocalTime" },
+        "amount_mg": { "type": "number", "minimum": 0 },
+        "source": { "type": "string", "minLength": 1 }
+      }
+    },
+    "RoutineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["done"],
+      "properties": {
+        "done": { "type": "boolean" },
+        "time": { "$ref": "#/$defs/LocalTime" },
+        "duration_min": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Workout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time"],
+      "properties": {
+        "time": { "$ref": "#/$defs/LocalTime" },
+        "duration_min": { "type": "integer", "minimum": 0 },
+        "type": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
