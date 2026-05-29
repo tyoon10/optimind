@@ -25,7 +25,6 @@ from src.subagents.definitions import SUBAGENTS
 from src.hooks.journal_hook import journal_hook_matcher
 from src.hooks.reflector_hook import reflector_hook_matcher
 from src.hooks.sync_hook import sync_hook_matcher
-from src.hooks.slack_format_hook import slack_format_hook_matcher
 from src.hooks.user_prompt_hook import user_prompt_hook_matcher
 
 
@@ -70,7 +69,6 @@ def get_agent_options(session_id: Optional[str] = None) -> ClaudeAgentOptions:
         hooks={
             "UserPromptSubmit": [user_prompt_hook_matcher],
             "Stop": [journal_hook_matcher, reflector_hook_matcher, sync_hook_matcher],
-            "PostToolUse": [slack_format_hook_matcher],
         },
     )
 
