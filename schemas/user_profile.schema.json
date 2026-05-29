@@ -33,8 +33,8 @@
       "properties": {
         "topic": {
           "type": "string",
-          "enum": ["nutrition", "scheduling", "profile", "environment"],
-          "description": "Enforced enum so a typo (e.g. 'nuturition') fails validation rather than silently creating an orphan rule the Analyst agent will never grep."
+          "enum": ["nutrition", "scheduling", "profile", "environment", "supplementation", "psychology", "system"],
+          "description": "Enforced enum so a typo (e.g. 'nuturition') fails validation rather than silently creating an orphan rule the Analyst agent will never grep. Reflects the real categories in use (supplementation is the largest); add a new topic here before using it."
         },
         "rule": {
           "type": "string",
@@ -42,8 +42,8 @@
         },
         "source": {
           "type": "string",
-          "enum": ["user_interaction", "agent_learned", "manual"],
-          "default": "user_interaction"
+          "minLength": 1,
+          "description": "Free-text provenance — where this rule came from. Conventions for new rules: 'user_interaction', 'agent_learned' (reflection-promoted; the decay job only fades these), 'manual'. Legacy/curated rules may carry a descriptive source (e.g. 'Supplement Protocol Review (2026-05-05)'); these are intentionally exempt from decay. Not an enum — provenance is open-ended."
         },
         "created_at": {
           "type": "string",
