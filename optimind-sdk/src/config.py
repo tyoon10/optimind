@@ -2,9 +2,9 @@
 Configuration — simplified from v1.
 
 Removed: GOOGLE_API_KEY, GOOGLE_PROJECT_ID, GOOGLE_LOCATION, GEMINI_MODEL,
-         dual-provider validation logic.
+         dual-provider validation logic, Slack tokens (Slack removed entirely).
 Added: ANTHROPIC_API_KEY, OPTIMIND_JOURNAL_PATH.
-Preserved: Slack tokens, GitHub PAT, journal repo URL, path resolution.
+Preserved: GitHub PAT, journal repo URL, path resolution.
 
 OPTIMIND_JOURNAL_PATH is the runtime coupling to the optimind-journal repo
 (see schemas/optimind_interface.md). When set, all journal/profile/state I/O
@@ -29,10 +29,6 @@ class Config:
 
         # Anthropic (replaces Google AI Studio / Vertex AI)
         self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-
-        # Slack
-        self.SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-        self.SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
 
         # Git / Journal
         self.GITHUB_PAT = os.getenv("GITHUB_PAT")
@@ -69,10 +65,6 @@ class Config:
         errors = []
         if not self.ANTHROPIC_API_KEY:
             errors.append("Missing ANTHROPIC_API_KEY")
-        if not self.SLACK_BOT_TOKEN:
-            errors.append("Missing SLACK_BOT_TOKEN")
-        if not self.SLACK_SIGNING_SECRET:
-            errors.append("Missing SLACK_SIGNING_SECRET")
         if self.ENV == "production" and not os.getenv("OPTIMIND_JOURNAL_PATH"):
             errors.append("OPTIMIND_JOURNAL_PATH must be set in production")
         if errors:
