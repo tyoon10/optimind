@@ -1,0 +1,10 @@
+{
+  "items": [
+    {"id": "sunlight", "expected_window": "06:30-07:30", "duration_min": 10},
+    {"id": "cold_shower", "expected_window": "07:00-08:00"},
+    {"id": "meditation", "expected_window": "07:30-08:00", "duration_min": 10},
+    {"id": "deep_work", "expected_window": "09:30-12:00", "duration_min": 150},
+    {"id": "workout", "expected_window": "17:00-18:30", "type": "strength"},
+    {"id": "wind_down", "expected_window": "21:30-22:30"}
+  ]
+}
