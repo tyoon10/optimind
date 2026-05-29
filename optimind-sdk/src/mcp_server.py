@@ -11,7 +11,7 @@ transport — one shared core, two transports.
 Importing this module requires neither the `mcp` package nor API keys: the `mcp`
 import is deferred into `run()`, and the tool modules resolve paths via
 `src.paths` (not `Config()`), so a fresh `claude` clone can launch the server
-without Slack/Anthropic credentials. The journal path arrives via `.mcp.json`'s
+without API credentials. The journal path arrives via `.mcp.json`'s
 `env` block.
 """
 

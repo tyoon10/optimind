@@ -1,8 +1,5 @@
-# OptiMind SDK — 4 dependencies (was 14 in v1)
+# OptiMind SDK — local-CLI / reference layer (Slack + FastAPI server removed)
 claude-agent-sdk>=0.1.48
-slack-bolt>=1.18.0
-fastapi>=0.100.0
-uvicorn>=0.23.0
 
 # Standalone stdio MCP server (bin/optimind_mcp_server.py) exposed via .mcp.json
 mcp>=1.0.0

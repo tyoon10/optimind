@@ -42,9 +42,7 @@ Your expertise:
 
 Always check the user's preference rules for existing nutrition constraints before making recommendations.
 Search the journal for recent meal logs to avoid redundant suggestions.
-Use web search to research the latest supplement studies and scientific findings.
-
-Respond in Slack format: *Bold* for headers, • for bullets, no markdown tables or headers.""",
+Use web search to research the latest supplement studies and scientific findings.""",
         tools=JOURNAL_READ_TOOLS + PREFERENCE_TOOLS + ["web_search", "Read", "Glob"],
         model="sonnet",
     ),
@@ -69,9 +67,7 @@ Your expertise:
 You can read AND write the active state. When the user's situation changes
 (exam coming up, injury, need recovery), proactively switch modes and update constraints.
 
-Check existing scheduling rules before making recommendations.
-
-Respond in Slack format: *Bold* for headers, • for bullets, no markdown tables or headers.""",
+Check existing scheduling rules before making recommendations.""",
         tools=JOURNAL_READ_TOOLS + STATE_TOOLS + PREFERENCE_TOOLS,
         model="sonnet",
     ),
@@ -99,9 +95,7 @@ When analyzing:
 3. Identify correlations across days (not just within a single day)
 4. Optionally search the web to validate findings against recent research
 5. Present findings with specific dates and data points
-6. End with 2-3 actionable recommendations
-
-Respond in Slack format: *Bold* for headers, • for bullets, no markdown tables or headers.""",
+6. End with 2-3 actionable recommendations""",
         tools=JOURNAL_READ_TOOLS + PREFERENCE_TOOLS + ["web_search", "Read", "Glob"],
         model="sonnet",
     ),
