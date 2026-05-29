@@ -21,5 +21,3 @@ except ImportError:
     sys.modules["dotenv"] = _stub
 
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
-os.environ.setdefault("SLACK_BOT_TOKEN", "test-bot")
-os.environ.setdefault("SLACK_SIGNING_SECRET", "test-secret")

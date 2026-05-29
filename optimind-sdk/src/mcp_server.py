@@ -11,7 +11,7 @@ transport — one shared core, two transports.
 Importing this module requires neither the `mcp` package nor API keys: the `mcp`
 import is deferred into `run()`, and the tool modules resolve paths via
 `src.paths` (not `Config()`), so a fresh `claude` clone can launch the server
-without Slack/Anthropic credentials. The journal path arrives via `.mcp.json`'s
+without API credentials. The journal path arrives via `.mcp.json`'s
 `env` block.
 """
 
@@ -84,7 +84,11 @@ TOOLS: dict[str, tuple[str, dict, Callable[[dict[str, Any]], str]]] = {
     ),
     "log_field": (
         "Log one structured field to the daily log AND mirror it to the journal (dual-write). "
-        "field is a dotted path (e.g. 'sleep.wake_time', 'caffeine', 'routine.cold_shower').",
+        "field is a dotted path (e.g. 'sleep.wake_time', 'caffeine', 'routine.cold_shower'). "
+        "For event categories (caffeine/meal/snack/workout) ALWAYS pass value as a structured object "
+        "matching daily_log.schema.json, never a bare string: caffeine -> {amount_mg:int, source:str} "
+        "(estimate amount_mg from the source if unstated — brewed coffee ~95mg, espresso ~65mg, "
+        "cold brew ~205mg/16oz, tea ~47mg); meal/snack -> {items:str}; workout -> {duration_min:int, type:str}.",
         {"type": "object",
          "properties": {"field": {"type": "string"}, "value": {}, "time": {"type": "string"}},
          "required": ["field", "value"]},

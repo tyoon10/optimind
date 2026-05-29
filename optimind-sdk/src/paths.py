@@ -3,7 +3,7 @@ Path resolution for the journal root — deliberately decoupled from Config().
 
 Tools, hooks, AND the standalone MCP server (bin/optimind_mcp_server.py) import
 `journal_root` from here so they can resolve data paths WITHOUT triggering
-`Config()` validation, which refuses to load when API/Slack keys are absent (as
+`Config()` validation, which refuses to load when the API key is absent (as
 in a fresh `claude`-CLI clone). `src.config` re-exports this name for
 backward-compatibility, so existing `from src.config import journal_root` keeps
 working.
