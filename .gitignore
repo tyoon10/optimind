@@ -10,6 +10,7 @@ venv/
 !schemas/*.json
 !.mcp.json
 !**/package.json
+!**/package-lock.json
 !**/tsconfig.json
 !routines/*.json
 logs/
