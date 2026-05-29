@@ -17,7 +17,8 @@ branch, switch to main (git switch main) before committing.
    DO NOT regenerate — skip to step 6 (brief only). If a complete protocol for today already exists
    (any source) and nothing has changed, do not duplicate it — exit without writing.
 3. Read inputs: state.json (system_mode + constraints); user_profile.json (rules with topic
-   scheduling/routine); the last 1-2 journal/<date>.md files (recent context + any "tomorrow skip X").
+   scheduling/routine AND supplementation — esp. the "CURRENT DAILY SUPPLEMENT SCHEDULE" rule);
+   the last 1-2 journal/<date>.md files (recent context + any "tomorrow skip X").
 4. Build protocol.items[] — each {id, expected_window, duration_min?, type?}; id snake_case
    (sunlight, cold_shower, meditation, deep_work, workout, wind_down...). Reshape sparse input into a
    realistic day. If nothing useful and no override, use this default:
@@ -27,6 +28,12 @@ branch, switch to main (git switch main) before committing.
     {"id":"deep_work","expected_window":"09:30-12:00","duration_min":150},
     {"id":"workout","expected_window":"17:00-18:30","type":"strength"},
     {"id":"wind_down","expected_window":"21:30-22:30"}]
+   ALSO emit one protocol item per supplement time-slot from the CURRENT DAILY SUPPLEMENT SCHEDULE,
+   so they appear as dashboard check-off items: {"id":"am_supplements","expected_window":"07:30-08:15"},
+   {"id":"zinc","expected_window":"19:00-19:30"}, {"id":"creatine","expected_window":"17:00-18:30"}
+   (AM on rest days), {"id":"mg_stack","expected_window":"21:15-21:30"}. Emit only the slots that are
+   in the current schedule (do NOT add Ashwagandha/Apigenin unless they're in the current daily list).
+   Keep `zinc` >=2h before `mg_stack`.
 5. Adjust for system_mode: EXAM_MODE -> drop/shorten workout, extend deep_work; DEEP_WORK -> more
    focus blocks; RECOVERY -> lighter, more rest; STANDARD -> balanced. Respect active constraints.
 6. Write the protocol into daily/<date>.json (read->merge->write per CLAUDE.md; PRESERVE any existing
