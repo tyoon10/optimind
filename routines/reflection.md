@@ -10,10 +10,13 @@ OUTPUT BRANCH — IMPORTANT: commit and push ALL changes DIRECTLY to the `main` 
 START IN DRY-RUN: do NOT modify user_profile.json. Only write a System journal entry describing what you WOULD change. (Delete this paragraph to enable apply-mode.)
 
 1. Resolve the NYC date (CLAUDE.md -> Timezone).
-2. Read journal/<last 7 days>.md (User + Dashboard lines = ground truth) and daily/<last 14 days>.json (numeric trends), plus user_profile.json (existing rules).
-3. Detect REPEATED signals only — require an N-of-M threshold (e.g. seen on >=3 of the last 7 days, or a clear explicit statement). A single observation is not a rule.
-4. For each candidate, decide: add a new rule (source "agent_learned", created_at/updated_at = now NYC-offset), reinforce an existing rule (bump updated_at + confidence), or revise/delete one the user explicitly contradicted.
-5. CONFIDENCE: new machine-learned rules start BELOW 0.5 (PENDING — not yet authoritative). Never auto-promote a single observation past 0.5 — surface those for the user's review. Never override an explicit user rule without flagging the conflict.
-6. (Apply-mode only) Validate user_profile.json's schema_version (expect "1.0"); if it mismatches, STOP and write a System note instead of guessing. Apply PENDING (<0.5) deltas; keep valid JSON; re-read to confirm.
-7. Append a `### HH:MM | System` entry summarizing what you proposed / applied / queued, with the evidence (which days, counts). Commit and push user_profile.json (if changed) and journal/<date>.md DIRECTLY to `main` (no branch, no PR).
+2. Read journal/<last 7 days>.md (User + Dashboard lines = ground truth) and daily/<last 14 days>.json (numeric trends), plus user_profile.json (existing rules) and state.json (current mode + constraints).
+3. CAPTURE GAPS — for each of the last 7 days, list any day missing: a sleep entry (`log.sleep`), any caffeine entry, any meal entry, any routine ticks, any workout entry. These are the seeds for dashboard nudges (USER_FLOW_PLAN §7.8). Output as a small block: `Capture gaps (last 7d): sleep [d1, d3]; workouts [d1..d7]; ...`.
+4. OPEN LOOPS — scan journal User-lines from the last 7d for questions / requests / decision intents that have no corresponding Agent resolution in the same or a later entry (e.g. user asked "what's the ideal lunch" but no protocol or recommendation followed). List them verbatim with their date.
+5. OVERRIDE CONFIRMATION — for any User-line decision/override ("today no workout", "switch to EXAM_MODE", "tomorrow skip X"): verify the change was reflected in state.json (mode/constraints) and/or the relevant day's `daily/<date>.json` `protocol.source: mobile_override`. Flag misses.
+6. PATTERN DETECTION — detect REPEATED signals only — require an N-of-M threshold (e.g. seen on >=3 of the last 7 days, or a single clear explicit statement). A single observation is not a rule.
+7. For each candidate, decide: add a new rule (source "agent_learned", created_at/updated_at = now NYC-offset), reinforce an existing rule (bump updated_at + confidence), or revise/delete one the user explicitly contradicted.
+8. CONFIDENCE: new machine-learned rules start BELOW 0.5 (PENDING — not yet authoritative). Never auto-promote a single observation past 0.5 — surface those for the user's review. Never override an explicit user rule without flagging the conflict.
+9. (Apply-mode only) Validate user_profile.json's schema_version (expect "1.0"); if it mismatches, STOP and write a System note instead of guessing. Apply PENDING (<0.5) deltas; keep valid JSON; re-read to confirm.
+10. Append a `### HH:MM | System` entry with these sections in order: Capture gaps; Open loops; Override confirmation; Proposed rule deltas (with evidence — which days, counts); Applied / Queued summary. Markdown only, no tables. Commit and push user_profile.json (if changed) and journal/<date>.md DIRECTLY to `main` (no branch, no PR).
 ```

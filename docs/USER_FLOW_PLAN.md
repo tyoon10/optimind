@@ -112,13 +112,27 @@ Bound at runtime via `OPTIMIND_JOURNAL_PATH`. See `schemas/optimind_interface.md
 > _When in your day do you imagine reaching for OptiMind? Morning planning? Mid-workout? End-of-day reflection? Reactive (when something goes wrong) or scheduled (daily check-in)?_
 
 ### 4.2 Interaction style
-**[ANSWERED]**
+**[ANSWERED — refined 2026-05-29 from input audit]**
 
-- **Flexible / free-form input → CC mobile app.** Anything that's natural to express in language (logging "had 2 espresso shots and feeling jittery", reactive consults, weekly review questions).
-- **Structured / standardized input → dashboard.** Anything with a constrained value space (sleep score 0–100, mode toggle, supplement checklist) where typed prose is slower and noisier than tapping a control.
-- **Q&A, feedback, and validation → CC mobile app.** The conversational loop is mobile-first.
+Rule of thumb: **mobile for language, dashboard for forms.** Refined by an audit of ~60 days of `### HH:MM | User` lines (2026-05-29). Seven input categories were observed; each maps to the surface where it has the least friction and the cleanest downstream wiring.
 
-The rule of thumb: **mobile for language, dashboard for forms.** If a flow needs both (e.g. log a workout *with notes*), the dashboard captures the structured part and links to a mobile session for the prose.
+| Category (~freq) | Surface | Why |
+|---|---|---|
+| Routine completion ("cold shower — done") (~20%) | Dashboard tap | Binary, repeating; one tap mirrors to `log.routine.<id>` + Dashboard line. |
+| Structured events — caffeine, meal, sleep numbers, workout (~35%) | Dashboard form (preset > typed value) | Numeric capture; user almost never volunteers mg/duration — presets map to numbers. |
+| Sleep / state — numeric (bed, wake, quality 1–5) (part of ~15%) | Dashboard slider | Foundational metric; currently zero structured capture is the biggest data gap. |
+| Sleep / state — narrative ("felt heavy, no alarm") (part of ~15%) | Notes field on the sleep form, or chat | Subjective context worth keeping; goes in the same submit. |
+| Q&A consult ("build a protocol", "evaluate adding X") (~10%) | CC mobile chat | Needs `user_profile.json` rules + recent context; this is the agent's job. |
+| Decisions / overrides ("today no workout") (~5%) | Chat captures intent → dashboard banners the result | Chat regenerates `protocol` (`source: mobile_override`) and may flip `state.json` mode; dashboard reflects. |
+| Backfill / catch-up (batched recap of missed days) (~5%, **high friction**) | CC mobile chat | One message parses into many writes — forms would require 8+ submits. |
+| Reflective / open loops ("what's the ideal lunch") (~10%) | CC mobile chat | Free-form; the Reflection routine picks them up as `User`-line signal. |
+
+Audit observations the forms must respect:
+1. **You almost never volunteer numbers.** Caffeine = "coffee", not "95mg". Meals = ingredient names, not macros. → Presets + agent inference, not free-number entry.
+2. **Sleep is foundational but unstructured.** → Highest-leverage new dashboard capture.
+3. **Friction is in catch-up, not real-time.** → Forms can't fix it; chat backfill + dashboard nudges can.
+
+If a flow genuinely needs both (workout *with notes*), the dashboard captures the structured part and an optional notes field carries the prose into the same Dashboard mirror line.
 
 ### 4.3 Cadence
 **[PARTIAL — periodicity will come from scheduled jobs, see §10]**
@@ -149,6 +163,32 @@ Key consequences of the cloud constraint (confirmed against the Agent SDK + Clau
 - **No runtime-guaranteed verbatim logging or auto-sync in cloud** (those were `UserPromptSubmit`/`Stop` hooks). In cloud they are agent-followed per `CLAUDE.md`. If a hard verbatim guarantee is later required, it needs the CLI/hook path or a server — out of scope for the cloud-only v1.
 
 Each interactive session is **ephemeral**: a fresh cloud container with the `optimind-journal` repo, then the agent boots from `CLAUDE.md`. No cross-session in-memory state — everything durable lives in `optimind-journal` (committed to GitHub).
+
+### 4.7 First-principles framing — doctor / coach / assistant
+**[ANSWERED — 2026-05-29]**
+
+OptiMind is not a logger. It is a personal doctor + coach + assistant whose effectiveness scales with the **fidelity and continuity** of the data it has on you. Every surface, prompt, and routine should be designed around the question: *what does a great human coach do, and where does this surface let them do it better?*
+
+Five operating principles fall out of that framing — they govern §4.2, §6, §7, and §8.
+
+1. **Observation precedes advice.** A coach who can't see what's happening can't help. Capture must be cheap and frictionless. When in doubt, lower the ask, not raise it — the audit shows the user rarely volunteers numerics, so the system estimates them from qualitative input (CLAUDE.md "Structured Logging" already encodes this for caffeine; the dashboard extends the pattern to meals, sleep quality, workouts).
+2. **Memory accrues; don't re-ask.** A great doctor opens your file before the visit. Every session re-orients from `journal/*.md` + `user_profile.json` + `state.json` (see §6.3); the model never assumes continuity with a previous turn. Captured data is durable; conversation context is not.
+3. **Minimum-viable structure.** Force structure only where it pays off downstream — numeric trends, compliance %, time-of-day distributions. Everything else lives in prose, parsed when needed. The 7-category audit (§4.2) is the discriminator: real-time numerics → forms; language → chat.
+4. **Surface gaps, not noise.** A coach notices what you *aren't* logging. Reflection and the dashboard nudges (§7.8) flag **capture gaps** (days with no sleep log), **open loops** (User questions in the last 7d with no resolution), and **adherence drops** (routine compliance trending down). These are higher signal than another aggregate chart.
+5. **Beliefs evolve on evidence.** The system's model of you (rules in `user_profile.json`) updates from observed behavior under PENDING semantics (§7.5 + §8.3) — proposals surface for review, never silently override an explicit user rule.
+
+The four cognitive lenses from `comprehensive_memory.md` — **Neuro-Sleep / Nutrition / Psychology-Coach / Strategy** — are the standing frame the system reasons in. Trend cards (§7.8), Weekly Review (§8.2), and Reflection (§8.3) organize observations under those four heads rather than ad-hoc groupings, so the user always knows which lens a finding belongs to.
+
+The user-facing chain of value (the loop §5–§8 implements):
+
+```
+seamless capture  →  longitudinal record  →  gap + pattern detection  →  better-grounded advice  →  rule evolution
+   (§4.2, §7.7)         (daily + journal)        (Reflection §8.3,            (CLAUDE.md +              (PENDING queue
+                                                  Weekly §8.2,                 user_profile.json)        §7.5, §8.3)
+                                                  nudges §7.8)
+```
+
+Each surface earns its place by making one of those arrows shorter or higher-fidelity. A surface that doesn't ships nothing.
 
 ---
 
@@ -451,6 +491,49 @@ Avoid in v1: Next.js App Router (overkill), Remix, any backend, ORMs, auth libra
 3. **Domain.** Custom subdomain (`optimind.<your-domain>`) vs `.pages.dev`? Affects OAuth callback config. *Lean: `.pages.dev` for v0; custom when domain matters.*
 4. **Offline policy.** Service worker + Dexie queue from day one, or require connectivity in v1? *Lean: build offline from day one — subway-logging is a core use case and bolting it on later is expensive.*
 
+### 7.7 Seamless-capture principles
+**[ANSWERED — 2026-05-29, derived from §4.2 audit]**
+
+The dashboard's job is to make logging *cheaper than not logging*. Seven design rules, each tied to an audit observation:
+
+1. **Preset > typed value.** Caffeine: pick drink type (latte / espresso / cold brew / drip / tea) → system maps to mg via lookup. Meal: pick slot (breakfast / lunch / dinner / snack) + single free-text "what" field — do not ask for ingredient rows or macros (the audit shows the user writes "pad see ew (tofu, broccoli, egg)" as one phrase, not as a structured list). Workout: pick type (strength / cardio / mobility) + duration. Sleep: bedtime + wake time + quality slider 1–5.
+2. **Single-tap routine ticks.** Each `protocol.items[]` row tappable; no confirmation modal. Time defaults to now.
+3. **Time always defaults to now.** User only adjusts when backfilling within the day.
+4. **Optional everything except the field being logged.** No required-field gates beyond the one the form is named after.
+5. **Dual-write is implicit and surface-agnostic.** Every tap mirrors as `### HH:MM | Dashboard\n[<field>] <value>` in `journal/<date>.md` (§7.5). User never thinks about two surfaces. The same contract applies when the cloud agent extracts structured facts from prose ("had a latte at 10:30" → `daily.log.caffeine[]` + Dashboard mirror line) — encoded in `optimind-journal/CLAUDE.md` → Structured Logging.
+6. **Backfill via chat, not forms.** A "Log a past day" deep-link on Today opens CC mobile with a date-stamped template (`Backfill 2026-05-21: …`); the cloud agent parses the message into multiple dual-writes against that historic file. Forms would require 8+ separate submits and don't help.
+7. **A "What's on your mind?" hybrid field** at the bottom of Today opens chat with the text pre-filled. Handles reflective notes (#7) and decision intent (#5) without forcing a surface switch when the user is already on the dashboard.
+
+These seven rules are the acceptance contract for any new dashboard form. Any form that violates them goes back to the design step.
+
+### 7.8 Trend lenses + friction nudges
+**[ANSWERED — 2026-05-29]**
+
+**Trends** are organized around the four cognitive lenses from `comprehensive_memory.md`. Each lens is one card on the Trends view; widgets are sourced from `daily/*.json` so they cost nothing extra to render.
+
+| Lens | Widgets (data already captured) | Source fields |
+|---|---|---|
+| **Neuro-Sleep** | sleep-quality sparkline (7d/30d); median bedtime + wake; caffeine total mg/day + count after 14:00; magnesium-slot compliance | `log.sleep`, `log.caffeine[]`, `log.routine.mg_stack` |
+| **Nutrition** | meal presence per slot (compliance %); breakfast-composition tick row vs. the 9-item rule in `user_profile.json` (eggs / tomato+EVOO / nut mix / Brazil / blueberries / kiwi / kimchi / cacao / flax); L-theanine pairing rate with caffeine | `log.meals[]`, `log.caffeine[].source` |
+| **Psychology / Coach** | routine compliance % per item (sunlight, cold_shower, meditation, deep_work, wind_down); 14d heatmap; Adler Shutdown completion when logged | `log.routine`, `protocol.items[]` |
+| **Strategy** | workouts/week + avg duration; deep_work block adherence; open-loops carried week-over-week | `log.workouts[]`, weekly review System entries, reflection open-loops list |
+
+Trends widgets render only when ≥7 days of data exist for the underlying field — empty sparklines discourage logging. Until that threshold, the lens card shows a "Logging X for Y more days unlocks this trend" message that *itself* doubles as a nudge.
+
+**Friction nudges** are passive prompts on the Today header that close capture and adherence gaps. Two computation sources:
+
+| Nudge | Computed by | Action when tapped |
+|---|---|---|
+| "3 days without a sleep log" | Dashboard: scan `daily/*.json` for missing `log.sleep` | Open CC chat with `Backfill <date>: bedtime ?, wake ?, quality ?` template |
+| "No workouts logged this week" | Dashboard: same scan over `log.workouts[]` | Open workout form (today) OR chat backfill (past) |
+| "Open loop: 'what's the ideal lunch' (2 days ago)" | Reflection (§8.3): User-line questions in last 7d with no Agent resolution | Open chat with original question + context loaded |
+| "Routine compliance trending down: sunlight 2/7 this week" | Weekly Review (§8.2): per-item compliance vs. prior week | Open chat for an upstream-cause consult |
+| "Protocol override from yesterday not confirmed" | Reflection: user-stated mode/override that wasn't reflected in `state.json` or `daily.protocol.source` | Open chat for confirmation |
+
+The dashboard renders nudges as small chips above the protocol checklist, capped at 3 visible (most recent / highest urgency wins). The full list lives on a "Loops" view (tertiary, §7.2).
+
+**Why nudges, not push notifications:** the §8.4 decision (2026-05-28) was dashboard-pull only — no push channel. Nudges work *because* the user is already on the dashboard for the morning protocol check; they catch attention without a new dependency.
+
 ---
 
 ## 8. Scheduled jobs (out-of-band) **[ANSWERED — partial]**
@@ -524,6 +607,9 @@ The journal is the audit log throughout — every job's apply/reject action writ
 - **2026-05-29** — `user_profile.json` diverged from the canonical schema (no `schema_version`; topics `supplementation`/`psychology`/`system`; free-text provenance `source`s like "Supplement Protocol Review (2026-05-05)"). → **Non-lossy migration: expand the schema to reality, not the data to the enum.** Added `schema_version: "1.0"` to the data (journal `main`); in `user_profile.schema.json` (optimind#17) widened the `topic` enum (+`supplementation`/`psychology`/`system`) and changed `source` from an enum to a free string (provenance is open-ended; the decay job only fades `source=agent_learned`, so legacy curated sources stay exempt). The migrated profile validates; this unblocks Reflection's `schema_version` check in apply-mode.
 - **2026-05-29** — Cloud CC Routines push to a per-session `claude/*` branch by default, and there is **no UI toggle** for it (the connector's "Default" is a cloud *environment* — name/network/env/setup-script — not a branch; Connectors are only MCP integrations like Drive/Notion). → **Make Routines commit DIRECTLY to `main`** via an explicit "OUTPUT BRANCH → `main`, no branch, no PR" directive at the top of each prompt, backed by the connector's **"unrestricted git push" permission (ON)**. Rationale: the journal is append-only / single-writer; per-run branches diverge (each run forks `main` and recreates the day's file) and never accumulate. **Verified** — the agent now switches off the feature branch and commits to `main`. Prompts updated in `routines/*.md` (optimind#18); also codified anti-duplicate (skip if today's protocol already exists unchanged).
 - **2026-05-29** — When to enable Reflection **apply-mode** (autonomous `user_profile.json` writes)? → **Keep DRY-RUN for ~1 week of nightly runs first**, then delete the dry-run paragraph. Rationale: (a) the §10.5 gate; (b) one run isn't enough trust for autonomous edits to the durable rule store (the first dry-run was excellent — caught a wake-time rule/behavior conflict, respected the N-of-M threshold, refused to touch a 0.9 rule — but it's one data point); (c) there's **no rule-review UI yet** (the dashboard MVP is logging-only), so PENDING rules would accumulate reviewable only via journal `System` entries. apply-mode stays conservative regardless (new rules PENDING <0.5, N-of-M threshold, never overrides explicit/durable rules).
+- **2026-05-29 — Input-shape audit (~60 journal days) → idiomatic capture model.** → Seven input categories observed (Routine completion / Structured event / Sleep-state narrative / Q&A consult / Decision-override / Backfill / Reflective). Quantitative values almost never volunteered; only friction is in catch-up logging. → Codified the **category-to-surface map (§4.2)**, the **seamless-capture principles (§7.7)**, and the **trend-lens + friction-nudges model (§7.8)**; folded category handling into `optimind-journal/CLAUDE.md` "Input-handling playbook". Drives dashboard next steps (sleep + workout forms, caffeine preset, meal single-line, backfill deep-link, system feed, nudges).
+- **2026-05-29 — First-principles framing made explicit.** → Added **§4.7 doctor/coach mental model** with five operating principles (observation precedes advice; memory accrues; minimum-viable structure; surface gaps not noise; beliefs evolve on evidence) and the chain-of-value loop (capture → record → gap detection → grounded advice → rule evolution). The four cognitive lenses from `comprehensive_memory.md` (Neuro-Sleep / Nutrition / Psychology-Coach / Strategy) are now the standing organizational frame for trends, weekly review, and reflection. Used as the acceptance test for new features: each must shorten one arrow in the loop or it doesn't ship.
+- **2026-05-29 — Routine prompts extended to detect gaps + open loops.** → `routines/reflection.md` now also emits (a) **capture gaps** per day, (b) **open loops** (User-line questions w/ no resolution), (c) **override confirmation** (was a stated mode/protocol change reflected in state.json or daily.protocol.source). `routines/weekly_review.md` reorganized to report **Wins/Drift per cognitive lens** + a **Capture** one-liner. `routines/morning_brief.md` System brief now includes a per-item **why** (rule topic + excerpt) and carries open loops from yesterday. These power the §7.8 nudges and the dashboard System feed.
 - **2026-05-27** — Dashboard deployment shape? → _pending §7.3 input_
 - **2026-05-27** — Reminder channel? → _pending §8.4 input_
 - **2026-05-27** — Privacy posture for cloud-ephemeral sessions handling personal data? → _pending §4.5 input_
@@ -559,9 +645,16 @@ Each task in §10.3 is one feature branch + one PR. Branch names: `feat/<short-n
 | 4 | `.mcp.json` + stdio MCP server | ✅ PR #9 — **CLI/dev-only** | Not on the cloud path; basis for a future remote-HTTP MCP server *iff* hosting is ever wanted (deferred). |
 | 5 | Morning-brief Routine | ◑ PR #11 — **needs reframe** | A cloud Routine has no `set_protocol` tool → reframe `routines/morning_brief.md` to **write the `protocol` into `daily/<date>.json` via file-I/O** + a `System` brief line. |
 | **S** | **Remove Slack** | NEW | Delete `optimind-sdk/src/server.py`, `hooks/slack_format_hook.py`, Slack tokens in `config.py`, `slack-bolt` dep, Slack refs in `agent.py`/`subagents`; and the legacy `optimind/src/` v1 tree. |
-| 6 | Dashboard MVP — `optimind/dashboard/` | next | Static PWA (SvelteKit + **npm** + Cloudflare Pages). **GitHub-API dual-write in an isolated `writeDaily.ts`** (mirrors `do_log_field`). **GitHub OAuth (PKCE) from day one**, isolated in `auth.ts`, with a Cloudflare Pages Function for the token exchange. Connectivity-required v1 (offline deferred to iteration 2). "Today" = protocol checklist + sleep/meal/caffeine/workout forms. Add `!**/package-lock.json` gitignore negation. |
+| 6 | Dashboard MVP — `optimind/dashboard/` | ✅ **DONE / LIVE** at `optimind-dashboard.pages.dev` (2026-05-29) | Static PWA (SvelteKit + **npm** + Cloudflare Pages). **GitHub-API dual-write in `writeDaily.ts`** (mirrors `do_log_field`). **GitHub OAuth (PKCE)** via `auth.ts` + Cloudflare Pages Function for token exchange. "Today" = protocol checklist + sleep/meal/caffeine/workout forms (sleep/workout stubbed — see Task 9). |
 | 7 | Scheduled jobs | ✅ **DONE / LIVE** | 3 Routine prompts (`routines/*.md`) live as claude.ai scheduled agents committing to `main` (verified); decay + schema-lint GHA in `optimind-journal` (dry-run). No push infra (reminders = dashboard-pull). |
-| 8 | Reflection pipeline | ✅ **DONE** (folded into `routines/reflection.md`) | Reflection is a cloud Routine reading 7d journal + 14d daily, proposing `user_profile.json` rule deltas with PENDING/threshold semantics. **DRY-RUN** until ~1 week of clean runs, then flip (§9). |
+| 8 | Reflection pipeline | ✅ **DONE** (folded into `routines/reflection.md`) | Reflection is a cloud Routine reading 7d journal + 14d daily, proposing `user_profile.json` rule deltas with PENDING/threshold semantics. **DRY-RUN** until ~1 week of clean runs, then flip (§9). 2026-05-29 extended with capture-gap + open-loop + override-confirmation detection. |
+| **9** | **Sleep + Workout forms on Today** | **NEXT — highest-leverage capture gap** | Add `SleepForm.svelte` (bedtime, wake_time, quality 1–5 slider, optional notes) and `WorkoutForm.svelte` (time, duration_min, type select strength/cardio/mobility) backed by `writeDaily.ts`. Audit shows zero structured sleep + zero workouts despite both being foundational. Schema fields already exist in `daily_log.schema.json`; pure UI work. |
+| **10** | **Caffeine preset → mg lookup; Meal single-line capture** | NEXT (paired with 9) | Replace caffeine `amount_mg` text input with drink-type select (latte / espresso / cold brew / drip / tea) → preset mg map (95/65/205/95/47). Meal form: slot select (breakfast/lunch/dinner/snack) + single free-text "what". Both match the §7.7 preset-over-typed rule. |
+| **11** | **System feed + protocol provenance chip** | After 9-10 | Today view: collapsed cards for the latest Morning Brief / Reflection (dry-run summary) / Weekly Review System entries from `journal/<recent>.md` — provides the "what does OptiMind think" view without opening files. Add a provenance chip on the protocol header reading `default` / `rule_derived` / `mobile_override` from `protocol.source`. |
+| **12** | **Friction nudges + Backfill deep-link + "What's on your mind?" hybrid field** | After 11 | Dashboard gap-scan over last 7d of `daily/*.json` → render up to 3 chips above the checklist (§7.8). Each chip taps to either the relevant form (today gaps) or `https://claude.ai/...` with a date-stamped backfill template (past gaps). Add a text field at the bottom of Today that opens chat with the prose pre-filled — handles reflective notes + decision intent without surface-switch. |
+| **13** | **Trends view (4 cognitive-lens cards)** | After ~2 weeks of capture | One card per lens (Neuro-Sleep / Nutrition / Psychology-Coach / Strategy), each with 2-3 widgets per §7.8 table. Render only when ≥7d data exists per widget; otherwise show a "logging X for Y more days unlocks this" nudge. Pure read from `daily/*.json` — no new data path. |
+| **14** | **Rules view + PENDING review queue** (after Reflection apply-mode flip) | Gated on Reflection DRY-RUN → apply-mode flip (~2026-06-05 if clean) | Sortable rule list (filter by topic / confidence / `updated_at`). PENDING (<0.5) queue at top with Accept / Reject / Snooze buttons that bump confidence ≥0.5 (Accept) or delete (Reject) via the same GitHub API path. Closes the §7.5 promotion loop end-to-end. |
+| **15** | **Monthly Synthesis Routine** (optional, evaluate after 4 Weekly Reviews) | Deferred | New cloud Routine on the 1st of each month: reads last 4 Weekly Reviews + last 30d of daily/json, produces a per-lens trend narrative + identifies stuck open loops. Decide whether to ship based on whether weekly reviews already give enough longitudinal signal. |
 
 ### 10.4 Parallel-agent strategy
 
