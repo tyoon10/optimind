@@ -190,6 +190,71 @@ seamless capture  →  longitudinal record  →  gap + pattern detection  →  b
 
 Each surface earns its place by making one of those arrows shorter or higher-fidelity. A surface that doesn't ships nothing.
 
+### 4.8 Memory persistence model
+**[ANSWERED — 2026-05-30]**
+
+OptiMind's memory is not "in the chat" — it lives in the `optimind-journal` repo. The cloud chat session is a stateless ephemeral process: a doctor who walks into the room with no recollection of prior visits. The repo is the chart. Continuity comes from one principle: **write everything substantive to files, read those files at the start of every turn that needs them.**
+
+#### Two layers, two timescales
+
+| Layer | Where | Who writes | Who reads |
+|---|---|---|---|
+| **Durable memory** | `user_profile.json`, `state.json`, `comprehensive_memory.md`, `CLAUDE.md` | Reflection routine, explicit user edits, occasional chat agent | Every session, on demand per turn |
+| **Conversation history** | `journal/YYYY-MM-DD.md` (verbatim User / Agent / Dashboard lines), `daily/YYYY-MM-DD.json` (structured), System entries from Routines | Every chat turn (via verbatim contract + dual-write), every Routine fire | The agent on substantive turns; the Reflection routine for trend detection |
+
+#### Two distinct mechanisms must compose
+
+For the LLM to actually reason on current state, two operations have to happen in order:
+
+1. **Files-on-disk freshness** — `git pull --rebase --autostash origin main` updates the session's local checkout to current `origin/main`. Necessary when something has landed on main since the session's clone (a Routine fire, another chat session, a manual edit).
+2. **Context-window ingest** — once files are fresh on disk, the LLM still doesn't see their content until a `Read` tool call pulls those bytes into the conversation. The model can only reason on what's in its context window, not what's on disk.
+
+**Important distinction**: `git pull` ≠ "refresh the LLM's memory". `git pull` refreshes files on disk; `Read` refreshes the LLM's context window. Both are required. Skipping `git pull` risks reading stale data; skipping `Read` means the model answers from training/internal recall, not from the current chart — the 2026-05-29 stale-apigenin failure pattern.
+
+```
+origin/main  --[git pull]-->  files on disk  --[Read tool call]-->  LLM context window
+ (truth)                       (cache layer)                          (what the model sees)
+```
+
+#### Three failure modes the architecture must handle
+
+1. **Stale clone** — long-lived chat session's local files frozen at session-start time while `origin/main` moves forward. Mitigation: HEAVY-read turns (Q&A / decisions / backfill) execute `git pull` first (§6.5).
+2. **Stale read** — fresh files on disk but the model answered from internal recall. Mitigation: the turn-start procedure mandates `Read` calls for the file set that matches the input shape.
+3. **Lost conversation history** — turns that didn't make it into `journal/<date>.md` are invisible to future sessions. Mitigation: dual-write contract + verbatim-first write order (CLAUDE.md "How to Log" + "Critical write contracts").
+
+#### Does it work alike for fresh vs long-running sessions?
+
+Almost — but with one load-bearing asymmetry on `CLAUDE.md` itself.
+
+| Aspect | Fresh new session | Long-running session |
+|---|---|---|
+| Turn-start procedure | Runs identically | Runs identically |
+| `git pull` on HEAVY turns | No-op (clone is current) — cheap | Load-bearing — catches drift since clone |
+| `Read` tool calls | Load fresh state into context | Load updated state, overwriting older recall |
+| Dual-write contract | Identical | Identical |
+| Push enforcement (non-FF rejection) | Identical | Identical |
+| **`CLAUDE.md` updates** | Picks up the latest from the clone | **Frozen at clone time** — system prompt is locked at session start; mid-session edits to CLAUDE.md don't take effect until the NEXT new session |
+
+The last row is the only meaningful asymmetry. **The system prompt is sealed in at session start.** Every other file (`user_profile.json`, `journal/`, `daily/`, `state.json`, `comprehensive_memory.md`) can be re-`Read` mid-session to refresh the LLM's view of it. `CLAUDE.md` alone is special: it's loaded once into the system prompt and stays there.
+
+**Consequence for shipping `CLAUDE.md` edits**: when you push a CLAUDE.md change (e.g. a new turn-start procedure), it takes effect on:
+- ✅ The very next Routine fire (each fire is a fresh session).
+- ✅ Every new chat session started after the push.
+- ❌ Any chat session already running — they keep the old CLAUDE.md until you close the chat and open a new one.
+
+This is fine — chat sessions are short-lived in practice, and the staleness window self-resolves on the next new session. **Mental model**: CLAUDE.md is the doctor's standing orders, baked in when the doctor signs in for the shift; the chart on the wall (other files) can be updated and re-read mid-shift.
+
+#### Routines vs chat — different staleness profiles
+
+|  | Routine fire | Chat session |
+|---|---|---|
+| Clone time | At fire (05:55 / 22:00 / Sun 18:00 ET) | At session boot (user-driven) |
+| Session length | Minutes (single-shot) | Minutes to hours (multi-turn) |
+| Drift risk during session | Negligible (one-shot) | Real (concurrent Routine / cross-tab writes) |
+| Read discipline source | Routine's own prompt steps | CLAUDE.md turn-start procedure (intent-keyed, §6.5) |
+
+The user's primary daily interface is CC mobile chat. Routines are scheduled fire-and-forget jobs that don't need the turn-start machinery — their own prompts already specify what they read. The intent-keyed turn-start procedure (§6.5) scopes to chat sessions only.
+
 ---
 
 ## 5. End-to-end flows **[INPUT NEEDED — partially seeded]**
@@ -270,6 +335,43 @@ Each surface earns its place by making one of those arrows shorter or higher-fid
 - _[e.g., "always end a reactive consult with a verification step the user can do in <10 minutes"]_
 - _[e.g., "never propose more than 3 changes in a single response — chunk into follow-ups"]_
 - _[e.g., "morning brief is read-only by default; never auto-write a new rule before noon"]_
+
+### 6.5 Turn-start procedure — intent-keyed reads + conditional pull
+**[ANSWERED — 2026-05-30]**
+
+Scope: **chat sessions only.** Routines have their own per-prompt read lists; they don't need this layer. Encoded in `optimind-journal/CLAUDE.md` immediately after the input-handling playbook.
+
+For every chat turn:
+
+1. **Classify the shape** of the user input using the 7-shape playbook (§4.2 / CLAUDE.md "Input-handling playbook").
+2. **Execute the read level** for that shape:
+   - **LIGHT** → Read `daily/<today>.json` only.
+   - **LIGHT+** → LIGHT + the topic-relevant rule(s) from `user_profile.json` (e.g. caffeine cutoff rule + current supplement schedule).
+   - **MEDIUM** → LIGHT+ + last 1-2 days of `daily/*.json` + `state.json`.
+   - **HEAVY** → Run `git pull --rebase --autostash origin main` FIRST (refreshes files on disk against any concurrent Routine fires or cross-session writes), then `Read`: `state.json`, `user_profile.json`, `comprehensive_memory.md`, last 3 days of `journal/*.md`, last 7 days of `daily/*.json`.
+3. **Cross-session reference handling** — if the user says "as we discussed", "yesterday's plan", "the X we talked about", regardless of shape: grep last 7 days of `journal/*.md` for the referent BEFORE responding.
+4. Write the verbatim `### HH:MM | User` line, compose the response, dual-write any structured facts, commit + push per the Critical write contracts.
+
+**Shape → read level mapping** (the load-bearing table; defaults you keep unless a turn argues for more):
+
+| Shape | Read level |
+|---|---|
+| Routine completion ("cold shower done") | LIGHT |
+| Structured event — caffeine or meal | LIGHT+ |
+| Structured event — workout, sleep numerics | LIGHT |
+| Sleep / state narrative | MEDIUM |
+| Q&A / consult | HEAVY |
+| Decision / override | HEAVY |
+| Backfill / catch-up | HEAVY (against the TARGET date's files, not today's) |
+| Reflective / open loop | LIGHT |
+
+**Why intent-keyed, not uniform**: a mandatory 5-file Read on every turn wastes context budget and latency on trivial taps ("cold shower done" doesn't need `user_profile.json`). Conversely, light reads on HEAVY shapes produce the 2026-05-29 stale-apigenin failure mode. The 7-shape playbook is already the agent's first cognitive step on every turn; attaching read levels to it adds zero classification cost.
+
+**Why `git pull` only on HEAVY**: structured-event writes are safe even on a stale clone — `git push` rejects non-fast-forward, forcing the agent to pull and retry. The remaining failure mode is *stale reads* — the agent answering Q&A or decisions from frozen files. HEAVY shapes pull first because they're answering with authority; stale data here produces wrong advice.
+
+**Cost**: HEAVY turns add ~1s (pull) + ~5-7 `Read` calls (~1-2s combined). LIGHT/LIGHT+ turns add nothing meaningful. Median chat turn pays no cost; high-stakes turns pay for fidelity.
+
+**Mechanism note**: `git pull` ≠ "refresh the LLM's context window". `git pull` refreshes files on disk; only `Read` ingests those bytes into the LLM's working context. Both are necessary; neither is sufficient alone. See §4.8.
 
 ---
 
@@ -610,6 +712,7 @@ The journal is the audit log throughout — every job's apply/reject action writ
 - **2026-05-29 — Input-shape audit (~60 journal days) → idiomatic capture model.** → Seven input categories observed (Routine completion / Structured event / Sleep-state narrative / Q&A consult / Decision-override / Backfill / Reflective). Quantitative values almost never volunteered; only friction is in catch-up logging. → Codified the **category-to-surface map (§4.2)**, the **seamless-capture principles (§7.7)**, and the **trend-lens + friction-nudges model (§7.8)**; folded category handling into `optimind-journal/CLAUDE.md` "Input-handling playbook". Drives dashboard next steps (sleep + workout forms, caffeine preset, meal single-line, backfill deep-link, system feed, nudges).
 - **2026-05-29 — First-principles framing made explicit.** → Added **§4.7 doctor/coach mental model** with five operating principles (observation precedes advice; memory accrues; minimum-viable structure; surface gaps not noise; beliefs evolve on evidence) and the chain-of-value loop (capture → record → gap detection → grounded advice → rule evolution). The four cognitive lenses from `comprehensive_memory.md` (Neuro-Sleep / Nutrition / Psychology-Coach / Strategy) are now the standing organizational frame for trends, weekly review, and reflection. Used as the acceptance test for new features: each must shorten one arrow in the loop or it doesn't ship.
 - **2026-05-29 — Routine prompts extended to detect gaps + open loops.** → `routines/reflection.md` now also emits (a) **capture gaps** per day, (b) **open loops** (User-line questions w/ no resolution), (c) **override confirmation** (was a stated mode/protocol change reflected in state.json or daily.protocol.source). `routines/weekly_review.md` reorganized to report **Wins/Drift per cognitive lens** + a **Capture** one-liner. `routines/morning_brief.md` System brief now includes a per-item **why** (rule topic + excerpt) and carries open loops from yesterday. These power the §7.8 nudges and the dashboard System feed.
+- **2026-05-30 — Memory persistence model + turn-start procedure made explicit.** → Added **§4.8 Memory persistence model** (files = memory, sessions = stateless caches; three failure modes — stale clone / stale read / lost conversation; fresh vs long-running session symmetry except CLAUDE.md is sealed at session start) and **§6.5 Turn-start procedure** (intent-keyed read levels — LIGHT / LIGHT+ / MEDIUM / HEAVY — keyed to the 7-shape playbook; `git pull --rebase --autostash origin main` only on HEAVY turns where stale data produces wrong advice). Codified in `optimind-journal/CLAUDE.md` as a Turn-start procedure block replacing the descriptive "Context" section. **Key mechanism distinction**: `git pull` refreshes files on disk; `Read` ingests bytes into the LLM's working context — both required, neither sufficient alone. Cancels the earlier proposal for a SessionStart hook (redundant with clone-on-boot). Scope: chat sessions only; Routines have their own per-prompt read lists.
 - **2026-05-27** — Dashboard deployment shape? → _pending §7.3 input_
 - **2026-05-27** — Reminder channel? → _pending §8.4 input_
 - **2026-05-27** — Privacy posture for cloud-ephemeral sessions handling personal data? → _pending §4.5 input_
