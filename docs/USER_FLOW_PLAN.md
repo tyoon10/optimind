@@ -209,7 +209,7 @@ For the LLM to actually reason on current state, two operations have to happen i
 1. **Files-on-disk freshness** — `git pull --rebase --autostash origin main` updates the session's local checkout to current `origin/main`. Necessary when something has landed on main since the session's clone (a Routine fire, another chat session, a manual edit).
 2. **Context-window ingest** — once files are fresh on disk, the LLM still doesn't see their content until a `Read` tool call pulls those bytes into the conversation. The model can only reason on what's in its context window, not what's on disk.
 
-**Important distinction**: `git pull` ≠ "refresh the LLM's memory". `git pull` refreshes files on disk; `Read` refreshes the LLM's context window. Both are required. Skipping `git pull` risks reading stale data; skipping `Read` means the model answers from training/internal recall, not from the current chart — the 2026-05-29 stale-apigenin failure pattern.
+**Important distinction**: `git pull` ≠ "refresh the LLM's memory". `git pull` refreshes files on disk; `Read` refreshes the LLM's context window. Both are required. Skipping `git pull` risks reading stale data; skipping `Read` means the model answers from training/internal recall, not from the current chart — the stale-recall failure mode (when files on disk hold updated rules but the model cites a recalled prior version).
 
 ```
 origin/main  --[git pull]-->  files on disk  --[Read tool call]-->  LLM context window
@@ -375,7 +375,7 @@ For every chat turn:
 | Backfill / catch-up | HEAVY (against the TARGET date's files, not today's) |
 | Reflective / open loop | LIGHT |
 
-**Why intent-keyed, not uniform**: a mandatory 5-file Read on every turn wastes context budget and latency on trivial taps ("cold shower done" doesn't need `user_profile.json`). Conversely, light reads on HEAVY shapes produce the 2026-05-29 stale-apigenin failure mode. The 7-shape playbook is already the agent's first cognitive step on every turn; attaching read levels to it adds zero classification cost.
+**Why intent-keyed, not uniform**: a mandatory 5-file Read on every turn wastes context budget and latency on trivial taps ("cold shower done" doesn't need `user_profile.json`). Conversely, light reads on HEAVY shapes produce the stale-recall failure mode. The 7-shape playbook is already the agent's first cognitive step on every turn; attaching read levels to it adds zero classification cost.
 
 **Why `git pull` only on HEAVY**: structured-event writes are safe even on a stale clone — `git push` rejects non-fast-forward, forcing the agent to pull and retry. The remaining failure mode is *stale reads* — the agent answering Q&A or decisions from frozen files. HEAVY shapes pull first because they're answering with authority; stale data here produces wrong advice.
 
@@ -625,8 +625,8 @@ These seven rules are the acceptance contract for any new dashboard form. Any fo
 
 | Lens | Widgets (data already captured) | Source fields |
 |---|---|---|
-| **Neuro-Sleep** | sleep-quality sparkline (7d/30d); median bedtime + wake; caffeine total mg/day + count after 14:00; magnesium-slot compliance | `log.sleep`, `log.caffeine[]`, `log.routine.mg_stack` |
-| **Nutrition** | meal presence per slot (compliance %); breakfast-composition tick row vs. the 9-item rule in `user_profile.json` (eggs / tomato+EVOO / nut mix / Brazil / blueberries / kiwi / kimchi / cacao / flax); L-theanine pairing rate with caffeine | `log.meals[]`, `log.caffeine[].source` |
+| **Neuro-Sleep** | sleep-quality sparkline (7d/30d); median bedtime + wake; caffeine total mg/day + count after the user's caffeine-cutoff time; evening-supplement-slot compliance | `log.sleep`, `log.caffeine[]`, `log.routine.*` |
+| **Nutrition** | meal presence per slot (compliance %); breakfast-composition tick row vs. the user's breakfast rule in `user_profile.json`; supplement-caffeine co-dose compliance per any pairing rule | `log.meals[]`, `log.caffeine[].source` |
 | **Psychology / Coach** | routine compliance % per item (sunlight, cold_shower, meditation, deep_work, wind_down); 14d heatmap; Adler Shutdown completion when logged | `log.routine`, `protocol.items[]` |
 | **Strategy** | workouts/week + avg duration; deep_work block adherence; open-loops carried week-over-week | `log.workouts[]`, weekly review System entries, reflection open-loops list |
 

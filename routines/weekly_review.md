@@ -11,8 +11,8 @@ OUTPUT BRANCH — IMPORTANT: commit and push DIRECTLY to the `main` branch. Do N
 2. Read daily/<last 14 days>.json (numbers — current + prior week for deltas) and journal/<last 7-14 days>.md (context + the why). Also read user_profile.json (rules) and state.json (current mode).
 3. STRUCTURED-LOG COUNTS (capture-completeness, not adherence) — count entries this week: sleep entries / total caffeine entries / meal entries by slot / routine ticks by item / workout entries. Output as one line: `Capture: sleep 4/7, caffeine 12, meals 18 (bk 5/lu 6/di 7), workouts 1, routine cold_shower 5/7 sunlight 3/7`. This grounds nudge generation (USER_FLOW_PLAN §7.8).
 4. COMPUTE METRICS by cognitive lens (comprehensive_memory.md). Don't fabricate missing days — say "no data".
-   - Neuro-Sleep: avg sleep quality + delta vs prior week; median bedtime/wake; caffeine count + how often after 14:00; magnesium-stack compliance (routine.mg_stack).
-   - Nutrition: meal presence per slot (compliance %); breakfast-composition adherence vs the 9-item rule when meals are itemized; L-theanine pairing rate with caffeine.
+   - Neuro-Sleep: avg sleep quality + delta vs prior week; median bedtime/wake; caffeine count + how often after the user's caffeine-cutoff time; evening-supplement-slot compliance (routine.*).
+   - Nutrition: meal presence per slot (compliance %); breakfast-composition adherence vs the user's breakfast rule when meals are itemized; supplement-caffeine co-dose compliance per any pairing rule.
    - Psychology/Coach: routine compliance % per item (sunlight, cold_shower, meditation, deep_work, wind_down) with delta vs prior week; flag any item trending down.
    - Strategy: workout count + avg duration; deep_work block adherence; open-loops carried from prior weeks (read last weekly review's Open loops).
 5. SYNTHESIS — one Win and one Drift PER lens (with numbers), upstream cause for each Drift, the open-loops list (carry forward unresolved items from prior weeks), and ONE concrete focus for next week (cite the lens it targets).
