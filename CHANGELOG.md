@@ -2,6 +2,24 @@
 
 All notable changes to the OptiMind project will be documented in this file.
 
+## [4.0.0] - 2026-05-31
+### Cloud-native pivot + public design archive
+
+This release moves OptiMind off Slack and off any long-running server. The runtime is now the Claude Code mobile/desktop app talking to a private companion repo (`optimind-journal`), plus three scheduled cloud Routines on claude.ai. This repo is retitled as the **public design archive** — canonical schemas, paste-ready routine prompts, dashboard PWA, the v3 SDK as a reference implementation, and the design doc with the engineering decision log.
+
+- **Architecture: cloud-native.** Removed all Slack and server scaffolding (`optimind-sdk/src/server.py`, `hooks/slack_format_hook.py`, Slack tokens, `slack-bolt` dependency) and the legacy `optimind/src/` v1 tree. The chat surface is now the Claude Code mobile app connected to a private `optimind-journal` repo via file I/O. No local machine, no 24/7 host. The §9 decision log in `docs/USER_FLOW_PLAN.md` traces every choice.
+- **Three scheduled cloud Routines** (`routines/`): Morning Brief (daily 05:55 ET), Nightly Reflection (daily 22:00 ET), Weekly Review (Sundays 18:00 ET). Each `.md` file's fenced `text` block is the paste-ready source-of-truth for what gets pasted into the claude.ai Routines configuration UI. All three carry an explicit `OUTPUT BRANCH → main` directive (cloud Routines default to a per-session `claude/*` branch otherwise). Reflection starts in DRY-RUN until ~1 week of clean runs.
+- **Dashboard MVP** (`dashboard/`): SvelteKit static PWA deployed to Cloudflare Pages. GitHub OAuth (PKCE) via a Cloudflare Pages Function for the code→token exchange (GitHub's token endpoint sends no CORS headers, so a pure SPA can't exchange directly). Writes to the journal repo via the GitHub REST API following a dual-write contract: every structured field write goes to both `daily/<date>.json` (numeric) and `journal/<date>.md` as a Dashboard-role mirror line.
+- **Canonical schemas** (`schemas/`): `daily_log.schema.json`, `user_profile.schema.json`, `journal_entry.schema.md`, `optimind_interface.md`. The four contracts that bind this repo to `optimind-journal` at runtime. `schema_version: "1.0"` enforced; migrations live in `migrations/`.
+- **`optimind-sdk/` reframed:** the Python implementation (tools, hooks, MCP server) becomes the **canonical reference algorithm + local-CLI tooling**, not the production path. Cloud sessions do file I/O directly guided by `CLAUDE.md` instead of calling these tools. The dual-write algorithm in `optimind-sdk/src/tools/daily.py` remains the public reference for anyone implementing the contract in another language.
+- **Design doc with engineering decision log** (`docs/USER_FLOW_PLAN.md`): first-principles framing for the doctor/coach mental model (§4.7), the memory persistence model with files = memory and sessions = stateless caches (§4.8), the 7-shape input playbook (§4.2), the intent-keyed turn-start procedure (§6.5), and the cumulative decision log (§9).
+- **Public design archive framing:** README rewritten to describe the two-repo system (public `optimind` / private `optimind-journal`), six governance rules for ongoing updates, MIT-licensed for forks. Legacy v1/v2 documentation and Windows PowerShell scripts archived off-repo (preserved for personal reference outside the public tree). Routine prompts and design doc lightly scrubbed of specific personal-protocol references (the user's data lives in the private companion repo; the public side is the system architecture).
+
+**Breaking changes from 3.0.0:**
+- Slack integration is gone (server, hooks, dependency, tokens).
+- The `optimind/src/` v1 tree (FastAPI + LangChain + Slack-Bolt) is removed; the legacy `bin/` PowerShell startup scripts are gone.
+- The production runtime no longer invokes `optimind-sdk/` tools or hooks; that code is now reference + CLI-dev tooling, not a server.
+
 ## [3.0.0] - 2026-03-19
 ### Claude Agent SDK Migration
 - **Migration:** Rebuilt from Gemini 3 Flash + LangChain to Claude Agent SDK (`optimind-sdk/`).
@@ -23,15 +41,6 @@ All notable changes to the OptiMind project will be documented in this file.
 - **Eliminated:** LLM factory, retry logic, Gemini response parsing, prompt template string formatting.
 - **Preserved:** Flat-file journal, state.json, user_profile.json, Slack-Bolt integration, git sync.
 - See `optimind-sdk/ARCHITECTURE.md` for full problem analysis and design rationale.
-
-## [2.2.0] - 2026-02-09
-### Gemini 3 Competition Submission
-- **Documentation:**
-    - added `LICENSE` (MIT).
-    - updated `README.md` with submission-specific instructions.
-- **Privacy:**
-    - Verified strict separation of user data (`data/journal`) from codebase.
-    - Confirmed `Memory-Only Mode` for judges (no `GITHUB_PAT` required).
 
 ## [2.1.0] - 2026-02-06
 ### Reliability & Latency Patch
