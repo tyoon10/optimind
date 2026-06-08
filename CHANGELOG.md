@@ -2,6 +2,32 @@
 
 All notable changes to the OptiMind project will be documented in this file.
 
+## [4.1.0] - 2026-06-07
+### Knowledge-base normalization — three-tier model with mechanism connector
+
+User-profile schema bumped 1.0 → 1.1 to support the three-tier knowledge model defined in [ADR-0001](./docs/decisions/ADR-0001-knowledge-base-normalization.md). The new tier is the **mechanism record** — addressable causal claims with sources and re-validation metadata — connecting protocol rules (the *what*) to research evidence (the *why*) via a `mechanism_ref` connector. Originally proposed as `PROP-2026-06-07-knowledge-base-normalization` in `optimind-journal/proposals/` (now `IMPLEMENTED`); promoted to permanent ADR for the cross-cutting architecture record.
+
+- **`schemas/user_profile.schema.json` v1.1** (this repo):
+  - `schema_version` widened from `const: "1.0"` to `enum: ["1.0", "1.1"]` to support the migration window. Flip to `const: "1.1"` in a future release once no v1.0 data remains anywhere.
+  - `PreferenceRule` gains three optional fields: `why_brief` (one-line cached mechanism, hot-path read), `mechanism_ref` (connector pattern `^mech\.[a-z_]+\.[a-z0-9_]+$`), `last_reviewed` (bare YYYY-MM-DD).
+  - `additionalProperties: false` posture confirmed at the rule-item level via the `$ref` → `PreferenceRule` indirection (the earlier audit's claim that it was unset was a Python-check artifact that missed the indirection).
+- **`schemas/mechanism.schema.json`** (NEW): formal shape for mechanism records — id, domain (`sleep | nutrition | psychology | strategy`), claim prose, `sources[]` (minItems: 1), `last_reviewed`, `confidence`. Records live as anchor-ID'd subsections in the journal repo's `comprehensive_memory.md`; the schema documents the shape but doesn't constrain location (memory or future `evidence/` are both valid renderers).
+- **`schemas/optimind_interface.md`**: new §"Knowledge-base architecture (v1.1+)" documenting the three tiers, the connector resolution mechanics (HTML-anchor convention to preserve dotted IDs), the three load-bearing invariants (denormalization-for-reads / coupling-sync / re-validation trigger), and the hot-path vs cold-path read patterns.
+- **`schemas/journal_entry.schema.md`**: grep-signal keyword table extended with `mech.<domain>.<slug>` and `mechanism:` so the analyst's multi-day pattern grep finds derivation entries that link back to mechanism IDs.
+- **`docs/decisions/`** (NEW): cross-cutting architecture decision records (ADRs). The directory's `README.md` defines the numbering convention (sequential, zero-padded), status taxonomy, and template. `ADR-0001-knowledge-base-normalization.md` is the first entry.
+
+**Data migration in `optimind-journal/` (private repo, separate commit history):**
+- `comprehensive_memory.md`: 21 mechanism records carved out across §§1–4 with anchors, sources, last_reviewed, confidence; new §5 Knowledge Architecture (~6 lines) stating the three invariants.
+- `user_profile.json`: bumped to `schema_version: "1.1"`. 19/23 rules now carry `why_brief`; 17/23 carry `mechanism_ref`; 23/23 carry `last_reviewed`. The stale `topic:system` pointer rule (`Reference data/journal/comprehensive_memory.md`, v1-era path) was superseded with the new self-referential pointer. Migration was JSON-Schema-validated against v1.1.
+- `CLAUDE.md`: Critical write contracts expanded 3 → 4 (added KB-sync contract); turn-start procedure HEAVY-read step added connector-walk; populate-on-create rule for new mechanisms.
+- `.claude/agents/`: analyst override gained Method §K (re-validation + sync-walk + coverage report on every Nightly Reflection); scheduler gained hot-path read pattern (use `why_brief`, don't dereference per-apply); nutritionist gained populate-on-create rule (new rule + new mechanism + new journal entry are one atomic write).
+
+**Decided thresholds** (stricter than originally proposed): `confidence < 0.95` and `last_reviewed > 6 months` trigger re-validation flag, per user choice at Phase 0c of the proposal. Expect aggressive flagging on the first Reflection — most existing rules at 0.9 confidence will auto-flag.
+
+**Breaking changes from 4.0.0:**
+- None at the contract level: v1.1 schema permits v1.0 data via the enum form. Existing tooling that reads `user_profile.json` continues to parse it correctly.
+- Behavior change: agents in `optimind-journal/.claude/agents/` now follow the v1.1 read patterns (hot-path via `why_brief`, cold-path via connector walk). Any fork of `optimind-journal` should review their overrides.
+
 ## [4.0.0] - 2026-05-31
 ### Cloud-native pivot + public design archive
 
