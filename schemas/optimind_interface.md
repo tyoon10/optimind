@@ -32,6 +32,8 @@ Resolution code lives in `optimind-sdk/src/config.py` and is consumed by:
 | `user_profile.json`                        | [`user_profile.schema.json`](./user_profile.schema.json) | preference tools                 |
 | `state.json`                               | (informal; see `optimind-sdk/src/tools/state.py`)     | state tools                      |
 | `journal/YYYY-MM-DD.md`                    | [`journal_entry.schema.md`](./journal_entry.schema.md)   | journal tools, Analyst subagent  |
+| `daily/YYYY-MM-DD.json`                    | [`daily_log.schema.json`](./daily_log.schema.json)       | daily tools, structured-log dual-write |
+| `comprehensive_memory.md`                  | mechanism records (anchor-ID'd subsections per [`mechanism.schema.json`](./mechanism.schema.json), v1.1+) | Analyst, Nutritionist, Scheduler |
 
 On load of `user_profile.json`, the app MUST validate against the JSON Schema. If `schema_version` is missing or mismatched, the app refuses to proceed (see Migration protocol below).
 
@@ -67,3 +69,45 @@ When a schema's shape changes (a field is added, renamed, or removed):
 4. Once migrated, commit the new file in `optimind-journal` and the new schema + script in `tyoon10/optimind`.
 
 This way the two repos can be upgraded independently as long as the schema versions agree at the moment the app boots.
+
+## Knowledge-base architecture (v1.1+, per PROP-2026-06-07 / ADR-0001)
+
+As of `user_profile.schema.json` v1.1, the knowledge base is normalized into three connector-linked tiers. The schemas above implement the data shape; this section documents the coupling contract.
+
+### Three tiers
+
+| Tier | Role | Lifecycle / owner | Home |
+|---|---|---|---|
+| **Operational** (hot) | Protocol = what + when + context params, plus a cached `why_brief` + `mechanism_ref` connector | changes on **user context** (frequent) | `user_profile.json` rules (PreferenceRule schema) |
+| **Reference / Mechanism** (warm) | Causal claim (the "why"), addressable by stable ID, with nested `sources[]` | changes on **science** (rare, external) | `comprehensive_memory.md` (anchor-ID'd subsections per `mechanism.schema.json`) |
+| **Evidential / Derivation** (cold) | Full study detail + as-derived reasoning | append-only | `journal/*.md` consults, referenced from a mechanism's `sources[]` |
+
+Cardinality is m:n at each seam; collapsed at the current corpus scale so that sources nest INSIDE each mechanism's `sources[]` field rather than being addressable on their own. Promote sources to a dedicated tier when nested pointers prove too thin.
+
+### Connector resolution
+
+A protocol rule's `mechanism_ref` (e.g. `"mech.sleep.thermal_onset"`) resolves to an anchor-ID'd subsection in `comprehensive_memory.md`. The rendering convention preserves dotted IDs (which GH-flavored markdown anchors otherwise mangle):
+
+```markdown
+<a id="mech.sleep.thermal_onset"></a>
+### Evening Thermal Dump
+... claim prose ...
+```
+
+Resolution is a literal anchor lookup against the memory file. The runtime SHOULD NOT auto-create mechanism records on demand — populate-on-create is the Nutritionist subagent's responsibility (see CLAUDE.md → Subagents).
+
+### Three load-bearing invariants
+
+The connector is an inert string until something walks it. These three invariants are the query engine:
+
+1. **Compressed-why-inline (denormalization-for-reads).** Every protocol rule MUST carry a non-empty `why_brief`. The hot path (Scheduler / Morning Brief generation) reads `why_brief` directly and SHOULD NOT dereference `mechanism_ref` per-apply. The second-order benefit is error detection: a rule whose `rule` text contradicts its `why_brief` is catchable on read.
+2. **Coupling / sync.** On any **protocol** update → walk `mechanism_ref`, confirm consistency. On any **mechanism** update → walk back to all referencing protocols + re-validate/sync `why_brief`. The Reflection routine extension (analyst override) implements this sync-walk on every nightly fire.
+3. **Re-validation trigger.** Items older than **6 months** or below **confidence 0.95** nominate themselves for review. Items past both thresholds are flagged on every Reflection until reviewed.
+
+### Runtime read pattern
+
+The hot path (daily protocol generation):
+- Read `user_profile.json` rules filtered by `topic` → use `rule` + `why_brief` directly. Do NOT walk `mechanism_ref` per-apply.
+
+The cold path (Q&A consult / decision / backfill — HEAVY-read turns):
+- Read rule + walk `mechanism_ref` → read the mechanism record → optionally walk `sources[]` if the rationale is under question.

@@ -2,15 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tyoon10/optimind/schemas/user_profile.schema.json",
   "title": "OptiMind User Profile",
-  "description": "Canonical schema for user_profile.json. The runtime MUST validate the loaded profile against this schema and refuse to start on incompatibility. PENDING semantics: any rule with confidence < 0.5 is treated as machine-readable PENDING (not just human convention).",
+  "description": "Canonical schema for user_profile.json. The runtime MUST validate the loaded profile against this schema and refuse to start on incompatibility. PENDING semantics: any rule with confidence < 0.5 is treated as machine-readable PENDING (not just human convention). v1.1 (2026-06-07): added why_brief / mechanism_ref / last_reviewed to PreferenceRule per PROP-2026-06-07-kb-normalization (knowledge-base normalization — three-tier model with mechanism connector).",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "user_id", "name", "rules"],
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.0",
-      "description": "Schema version. Bump via a migrations/user_profile_<from>to<to>.py script."
+      "enum": ["1.0", "1.1"],
+      "description": "Schema version. During the v1.0→v1.1 migration window the enum permits both values; flip to `const: \"1.1\"` once all rules carry schema_version 1.1 (per PROP-2026-06-07 §3A-1). Bump via a migrations/user_profile_<from>to<to>.py script."
     },
     "user_id": {
       "type": "string",
@@ -59,7 +59,22 @@
           "type": "number",
           "minimum": 0.0,
           "maximum": 1.0,
-          "description": "Below 0.5 is the PENDING threshold: the rule is machine-readable but not yet authoritative. Agents should surface PENDING rules for confirmation rather than apply them silently."
+          "description": "Below 0.5 is the PENDING threshold: the rule is machine-readable but not yet authoritative. Agents should surface PENDING rules for confirmation rather than apply them silently. Per PROP-2026-06-07 §3 invariant #3 (re-validation trigger), rules with confidence < 0.95 nominate for analyst re-validation."
+        },
+        "why_brief": {
+          "type": "string",
+          "minLength": 1,
+          "description": "(v1.1, added 2026-06-07 per PROP-2026-06-07.) A one-line denormalized mechanism cached on the rule. Load-bearing for hot-path reads — the scheduler/morning-brief uses this on every daily protocol build instead of dereferencing mechanism_ref. Also serves as an inline error-detection surface: a rule whose what contradicts its why_brief is detectable without leaving the file. Required content discipline: ≤120 chars, mechanism only (not protocol restated)."
+        },
+        "mechanism_ref": {
+          "type": "string",
+          "pattern": "^mech\\.[a-z_]+\\.[a-z0-9_]+$",
+          "description": "(v1.1, added 2026-06-07.) Stable connector to the mechanism record in comprehensive_memory.md (anchor id of the form mech.<domain>.<slug>). Resolution is m:n with sources (one mechanism, many citations) and 1:m with protocols (one mechanism, many rules cite it). The pattern enforces snake_case lowercase + the mech.<domain>.<slug> shape; runtime resolution against the mechanism store is the analyst's job, not the schema's. Per PROP-2026-06-07 §3 invariant #2, any update to this connector triggers a rule↔mechanism↔source sync-walk."
+        },
+        "last_reviewed": {
+          "type": "string",
+          "format": "date",
+          "description": "(v1.1, added 2026-06-07.) Bare YYYY-MM-DD (distinct from created_at/updated_at which carry ISO timestamps with offset). Per PROP-2026-06-07 §3 invariant #3, rules with last_reviewed > 6mo nominate for analyst re-validation. The re-validation engine is the nightly Reflection routine extended to scan this field across rules and mechanisms."
         }
       }
     }

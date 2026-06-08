@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tyoon10/optimind/schemas/mechanism.schema.json",
+  "title": "OptiMind Mechanism Record",
+  "description": "Schema for a single mechanism record. Mechanism records live as anchor-ID'd subsections in comprehensive_memory.md (one per protocol-shaping causal claim). The mechanism is the *why* — universal-truth-scoped, changes when science changes, m:n with protocols (one mechanism, many rules cite it via mechanism_ref) and m:n with sources (each mechanism nests its supporting citations in sources[]). Introduced 2026-06-07 by PROP-2026-06-07-kb-normalization (three-tier KB model).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "domain", "claim", "sources", "last_reviewed", "confidence"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^mech\\.[a-z_]+\\.[a-z0-9_]+$",
+      "description": "Stable identifier in the form mech.<domain>.<slug>. snake_case lowercase. The domain segment must match the `domain` field; the slug is the principle's short name (e.g. mech.sleep.thermal_onset, mech.nutrition.caffeine_pharmacology). Once published, this id is permanent — protocol rules' mechanism_ref pin to it."
+    },
+    "domain": {
+      "type": "string",
+      "enum": ["sleep", "nutrition", "psychology", "strategy"],
+      "description": "Top-level cognitive lens. Matches the four-domain framing in comprehensive_memory.md (§1 Neuro-Sleep / §2 Nutrition / §3 Psychology-Coach / §4 Strategy). Note: the ID uses the short form ('sleep'), not 'neuro_sleep' — see PROP-2026-06-07 v2 C2 fix."
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-paragraph causal mechanism prose. The why. Not the protocol (the what — that lives in the rule's `rule` field) and not the evidence (that lives in sources[] + journal). Should be readable in isolation — a future agent walking the connector should be able to verify the cited rule's why_brief against this claim without further context."
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Citations supporting the claim. Each entry is a free-text reference: published study (e.g. 'Haghayegh 2019 (Sleep Med Rev)'), journal entry pointer (e.g. 'journal:2026-06-06#11:18' — derivation log), or other addressable source. Mirror of the rule-level `source` field, hoisted to the mechanism (one mechanism, many protocols — sources live with the mechanism so they don't get duplicated across cite-sites)."
+    },
+    "last_reviewed": {
+      "type": "string",
+      "format": "date",
+      "description": "Bare YYYY-MM-DD (same convention as the rule-level last_reviewed). Per PROP-2026-06-07 §3 invariant #3, mechanism records with last_reviewed > 6mo nominate for analyst re-validation — and since one mechanism may back many rules, a stale mechanism propagates the re-validation signal to all its referencing protocols."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Numeric only (matches the rule-level convention; no string enum form). Per PROP-2026-06-07 §3 invariant #3, mechanism records with confidence < 0.95 nominate for re-validation."
+    }
+  }
+}
