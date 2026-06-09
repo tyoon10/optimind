@@ -60,7 +60,7 @@ The following lowercased keywords are the **authoritative vocabulary** the Analy
 | Mode          | `DEEP_WORK`       | (uppercase, exact)                |
 | Mode          | `RECOVERY`        | (uppercase, exact)                |
 | Mode          | `STANDARD`        | (uppercase, exact)                |
-| Knowledge | `mech.<domain>.<slug>` | any non-dotted variant; reserved for mechanism IDs (per `mechanism.schema.json`, v1.1+) — see PROP-2026-06-07 / ADR-0001. A journal consult entry deriving or refining a mechanism should cite the mechanism ID literally (e.g. `mech.sleep.thermal_onset`) so the Analyst's grep over derivation entries finds the linkage to the rule's `mechanism_ref`. |
+| Knowledge | `mech.<domain>.<slug>` | any non-dotted variant; reserved for mechanism IDs (per `mechanism.schema.json`, v1.1+; see CHANGELOG v4.1.0). A journal consult entry deriving or refining a mechanism should cite the mechanism ID literally (e.g. `mech.sleep.thermal_onset`) so the Analyst's grep over derivation entries finds the linkage to the rule's `mechanism_ref`. |
 | Knowledge | `mechanism:` | none — used as an inline label before a mechanism ID in prose. Pairs with the dotted ID above. |
 
 \* `lunch` / `dinner` are allowed *in addition to* `meal` (they're useful timing signals), but every food entry must contain `meal` so the Analyst's `meal` query returns it.

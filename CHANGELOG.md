@@ -5,7 +5,14 @@ All notable changes to the OptiMind project will be documented in this file.
 ## [4.1.0] - 2026-06-07
 ### Knowledge-base normalization — three-tier model with mechanism connector
 
-User-profile schema bumped 1.0 → 1.1 to support the three-tier knowledge model defined in [ADR-0001](./docs/decisions/ADR-0001-knowledge-base-normalization.md). The new tier is the **mechanism record** — addressable causal claims with sources and re-validation metadata — connecting protocol rules (the *what*) to research evidence (the *why*) via a `mechanism_ref` connector. Originally proposed as `PROP-2026-06-07-knowledge-base-normalization` in `optimind-journal/proposals/` (now `IMPLEMENTED`); promoted to permanent ADR for the cross-cutting architecture record.
+User-profile schema bumped 1.0 → 1.1 to support a three-tier knowledge model: **sources** (cold; citations + derivation logs in the private journal repo) → **mechanisms** (warm; addressable causal claims with stable IDs in `comprehensive_memory.md`) → **protocols** (hot; `user_profile.json` rules, each carrying a cached `why_brief` plus a `mechanism_ref` connector to its mechanism record).
+
+**Why the split.** Protocols and mechanisms change on different timescales: mechanisms with science (rare, external), protocols with user context (frequent — moves, seasons, schedules). Coupling them meant a context change forced touching the science, and vice versa. Separating them also gives the system an inline error-detection surface: a protocol whose claimed `why_brief` contradicts the mechanism it cites is catchable on read — the surface that caught a four-month-old "cold shower pre-sleep to lower core temp" inversion that motivated this change.
+
+**Three load-bearing invariants** govern the connectors (without them, mechanism_ref is an inert string):
+1. **Compressed-why-inline (denormalization-for-reads).** Every protocol carries a non-empty `why_brief`. The hot path reads `why_brief` directly and never dereferences `mechanism_ref` on each apply.
+2. **Coupling / sync.** On any protocol update → walk `mechanism_ref` and confirm consistency. On any mechanism update → walk back to all referencing protocols and re-validate `why_brief`. Implemented as a sync-walk on every nightly Reflection.
+3. **Re-validation trigger.** Items older than 6 months or below confidence 0.95 nominate themselves for review.
 
 - **`schemas/user_profile.schema.json` v1.1** (this repo):
   - `schema_version` widened from `const: "1.0"` to `enum: ["1.0", "1.1"]` to support the migration window. Flip to `const: "1.1"` in a future release once no v1.0 data remains anywhere.
@@ -14,7 +21,6 @@ User-profile schema bumped 1.0 → 1.1 to support the three-tier knowledge model
 - **`schemas/mechanism.schema.json`** (NEW): formal shape for mechanism records — id, domain (`sleep | nutrition | psychology | strategy`), claim prose, `sources[]` (minItems: 1), `last_reviewed`, `confidence`. Records live as anchor-ID'd subsections in the journal repo's `comprehensive_memory.md`; the schema documents the shape but doesn't constrain location (memory or future `evidence/` are both valid renderers).
 - **`schemas/optimind_interface.md`**: new §"Knowledge-base architecture (v1.1+)" documenting the three tiers, the connector resolution mechanics (HTML-anchor convention to preserve dotted IDs), the three load-bearing invariants (denormalization-for-reads / coupling-sync / re-validation trigger), and the hot-path vs cold-path read patterns.
 - **`schemas/journal_entry.schema.md`**: grep-signal keyword table extended with `mech.<domain>.<slug>` and `mechanism:` so the analyst's multi-day pattern grep finds derivation entries that link back to mechanism IDs.
-- **`docs/decisions/`** (NEW): cross-cutting architecture decision records (ADRs). The directory's `README.md` defines the numbering convention (sequential, zero-padded), status taxonomy, and template. `ADR-0001-knowledge-base-normalization.md` is the first entry.
 
 **Data migration in `optimind-journal/` (private repo, separate commit history):**
 - `comprehensive_memory.md`: 21 mechanism records carved out across §§1–4 with anchors, sources, last_reviewed, confidence; new §5 Knowledge Architecture (~6 lines) stating the three invariants.

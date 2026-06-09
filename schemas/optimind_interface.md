@@ -70,7 +70,7 @@ When a schema's shape changes (a field is added, renamed, or removed):
 
 This way the two repos can be upgraded independently as long as the schema versions agree at the moment the app boots.
 
-## Knowledge-base architecture (v1.1+, per PROP-2026-06-07 / ADR-0001)
+## Knowledge-base architecture (v1.1+)
 
 As of `user_profile.schema.json` v1.1, the knowledge base is normalized into three connector-linked tiers. The schemas above implement the data shape; this section documents the coupling contract.
 

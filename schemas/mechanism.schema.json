@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tyoon10/optimind/schemas/mechanism.schema.json",
   "title": "OptiMind Mechanism Record",
-  "description": "Schema for a single mechanism record. Mechanism records live as anchor-ID'd subsections in comprehensive_memory.md (one per protocol-shaping causal claim). The mechanism is the *why* — universal-truth-scoped, changes when science changes, m:n with protocols (one mechanism, many rules cite it via mechanism_ref) and m:n with sources (each mechanism nests its supporting citations in sources[]). Introduced 2026-06-07 by PROP-2026-06-07-kb-normalization (three-tier KB model).",
+  "description": "Schema for a single mechanism record. Mechanism records live as anchor-ID'd subsections in comprehensive_memory.md (one per protocol-shaping causal claim). The mechanism is the *why* — universal-truth-scoped, changes when science changes, m:n with protocols (one mechanism, many rules cite it via mechanism_ref) and m:n with sources (each mechanism nests its supporting citations in sources[]). Introduced 2026-06-07 as part of the three-tier KB model (see CHANGELOG v4.1.0).",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "domain", "claim", "sources", "last_reviewed", "confidence"],
@@ -15,7 +15,7 @@
     "domain": {
       "type": "string",
       "enum": ["sleep", "nutrition", "psychology", "strategy"],
-      "description": "Top-level cognitive lens. Matches the four-domain framing in comprehensive_memory.md (§1 Neuro-Sleep / §2 Nutrition / §3 Psychology-Coach / §4 Strategy). Note: the ID uses the short form ('sleep'), not 'neuro_sleep' — see PROP-2026-06-07 v2 C2 fix."
+      "description": "Top-level cognitive lens. Matches the four-domain framing in comprehensive_memory.md (§1 Neuro-Sleep / §2 Nutrition / §3 Psychology-Coach / §4 Strategy). Note: the ID uses the short form ('sleep'), not 'neuro_sleep'."
     },
     "claim": {
       "type": "string",
@@ -34,13 +34,13 @@
     "last_reviewed": {
       "type": "string",
       "format": "date",
-      "description": "Bare YYYY-MM-DD (same convention as the rule-level last_reviewed). Per PROP-2026-06-07 §3 invariant #3, mechanism records with last_reviewed > 6mo nominate for analyst re-validation — and since one mechanism may back many rules, a stale mechanism propagates the re-validation signal to all its referencing protocols."
+      "description": "Bare YYYY-MM-DD (same convention as the rule-level last_reviewed). Per the re-validation invariant (CHANGELOG v4.1.0), mechanism records with last_reviewed > 6mo nominate for analyst re-validation — and since one mechanism may back many rules, a stale mechanism propagates the re-validation signal to all its referencing protocols."
     },
     "confidence": {
       "type": "number",
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Numeric only (matches the rule-level convention; no string enum form). Per PROP-2026-06-07 §3 invariant #3, mechanism records with confidence < 0.95 nominate for re-validation."
+      "description": "Numeric only (matches the rule-level convention; no string enum form). Per the re-validation invariant (CHANGELOG v4.1.0), mechanism records with confidence < 0.95 nominate for re-validation."
     }
   }
 }
