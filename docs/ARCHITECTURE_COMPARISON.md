@@ -1,3 +1,5 @@
+> **⚠️ Superseded — historical record (pre-4.0.0).** This documents the original JSON-rule-store vs. "Digital Personal Trainer" file-system comparison from the Gemini 3 Flash / LangChain era. The "files-as-memory" / full-context-loading side of this comparison is the argument that won — it became the cloud-native journal architecture in 4.0.0 (and the three-tier knowledge model in 4.1.0). The "OptiMind (Current)" column, the `user_memory.json` store, Gemini 3 Flash, and the Orchestrator/router framing no longer exist. Retained for decision-history context (the "why files, not just a rule store" rationale); do not treat as current. For current architecture see `docs/USER_FLOW_PLAN.md`, `README.md`, and `CHANGELOG.md` [4.0.0]/[4.1.0].
+
 # Architecture Analysis: OptiMind vs. The "Digital Personal Trainer"
 
 ## 1. Executive Summary

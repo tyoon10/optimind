@@ -75,7 +75,7 @@ The runtime resolves the journal repo location from the `OPTIMIND_JOURNAL_PATH` 
 
 ### Schema validation
 
-On load of `user_profile.json`, `preferences.py` checks `schema_version` against the runtime's expected version (currently `"1.0"`). Mismatch → `ValueError` with a pointer to the relevant `migrations/user_profile_<from>to<to>.py` script. Migrations are explicit, never automatic.
+On load of `user_profile.json`, `preferences.py` checks `schema_version` against the runtime's expected version (currently `"1.1"`; the canonical `schemas/user_profile.schema.json` permits the enum `["1.0", "1.1"]` during the migration window). Mismatch → `ValueError` pointing at the relevant `migrations/user_profile_<from>to<to>.py` script. Migrations are explicit, never automatic.
 
 ### Verbatim user-input logging
 

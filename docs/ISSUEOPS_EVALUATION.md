@@ -1,3 +1,5 @@
+> **⚠️ Superseded — historical record (pre-4.0.0).** This documents the original evaluation of an "IssueOps" architecture (GitHub Issues → GitHub Actions → Git state → Gemini 3 Flash), weighed against the then-current FastAPI/Slack server. IssueOps was rejected as the chat surface, but its three extracted principles — *the commit is the unit of progress*, *files > database for LLMs*, and *stateless intelligence* — outlived it and shaped the cloud-native model adopted in 4.0.0 (git-as-infrastructure, ephemeral stateless sessions, context-complete reads). The §5 decision to "stick with FastAPI/Slack for now" is itself superseded: Slack and the server were removed in 4.0.0. Retained for decision-history context; do not treat as current. For current architecture see `docs/USER_FLOW_PLAN.md`, `README.md`, and `CHANGELOG.md` [4.0.0].
+
 # Architecture Evaluation: The "IssueOps" Model
 
 ## 1. System Overview

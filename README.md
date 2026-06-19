@@ -71,7 +71,7 @@ The clean abstraction: anything that describes *how the agent thinks* lives here
 
 ### Schemas (`schemas/`)
 
-The four canonical contracts — `user_profile.schema.json`, `daily_log.schema.json`, `journal_entry.schema.md`, `optimind_interface.md` — are the public API between this repo and the journal. Both repos reference these as the single source of truth. Bump `schema_version` on breaking changes; write a migration in `migrations/` before rolling forward.
+The five canonical contracts — `user_profile.schema.json`, `daily_log.schema.json`, `mechanism.schema.json`, `journal_entry.schema.md`, `optimind_interface.md` — are the public API between this repo and the journal. Both repos reference these as the single source of truth. Bump `schema_version` on breaking changes; write a migration in `migrations/` before rolling forward.
 
 ### Routines (`routines/`)
 

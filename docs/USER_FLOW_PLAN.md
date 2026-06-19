@@ -2,7 +2,7 @@
 
 > **Status:** Living draft. Sections marked **[INPUT NEEDED]** are awaiting user input. Sections marked **[GROUNDED]** are pre-filled from the codebase as of this commit and may be edited.
 >
-> **Audience:** This document is the baseline handoff for Claude Code (VS Code, multi-repo workspace: `tyoon10/optimind` + `optimind-journal`). When extending the product — building the dashboard, adding interaction surfaces, tuning system prompts — start here, not from the code alone.
+> **Audience:** This document is the baseline handoff for anyone extending OptiMind across the two repos (`tyoon10/optimind` + `optimind-journal`). When extending the product — building the dashboard, adding interaction surfaces, tuning system prompts — start here, not from the code alone. Two orientation reminders that govern everything below: (1) the **live runtime is cloud Claude Code** on the `optimind-journal` repo — the `optimind-sdk/` Python app is the reference implementation, not the production path; (2) the **active system prompt is `optimind-journal/CLAUDE.md`** — that is where runtime-behavior edits land (§6, §4.8).
 >
 > **How to use this doc:**
 > 1. The user fills in **[INPUT NEEDED]** sections incrementally.
@@ -13,24 +13,28 @@
 
 ## 1. Why this document exists
 
-Today OptiMind is a working agent runtime (Slack + Claude Agent SDK + journal repo). It has the right primitives — tools, subagents, a verbatim journal, a typed user_profile — but no *product spec*. The next phase (dashboard, richer prompts, new surfaces) needs to be driven by **what the user actually wants to do**, not by what's technically interesting to build.
+OptiMind is a **cloud-native** personal-assistant system: an ephemeral Claude Code mobile/cloud session reading and writing a private journal repo (`optimind-journal`), three scheduled cloud Routines, and a static dashboard PWA — no Slack, no server, no 24/7 host. It has the right primitives — a verbatim journal, structured daily logs, a typed `user_profile`, a three-tier knowledge model (§6.6) — and this doc is its *product spec of record*: the living design doc that any new work (dashboard, prompts, new surfaces) traces back to.
 
 This doc captures: the user's goals → desired interactions → end-to-end flows → derived requirements for the system prompt and dashboard. It's the contract between "what I want OptiMind to be" and "what gets built."
+
+> **Architecture lineage.** OptiMind began (v1–v2, Jan–Feb 2026) as a Gemini 3 Flash + LangChain + FastAPI + Slack-Bolt server. v3 (2026-03) migrated to the Claude Agent SDK. **4.0.0 (2026-05-31)** removed Slack and all long-running server scaffolding and re-centered the runtime on cloud Claude Code + the journal repo. **4.1.0 (2026-06-07)** added the three-tier knowledge model (§6.6). The pre-4.0.0 design comparisons that motivated the file-as-memory choice survive as bannered historical records in this `docs/` folder (`ARCHITECTURE_COMPARISON.md`, `ISSUEOPS_EVALUATION.md`, `logging_interface_analysis.md`). See `CHANGELOG.md` for the full record.
 
 ---
 
 ## 2. Current state (grounded)
 
-**[GROUNDED — current as of branch `claude/funny-lovelace-zZXSP`]**
+**[GROUNDED — current as of 4.1.0]**
 
-### Architecture (two repos, runtime-bound)
+### Architecture (two repos)
 
-| Repo | Owns |
-|---|---|
-| `tyoon10/optimind` | Agent runtime, MCP tools, generic agent prompts, canonical schemas |
-| `optimind-journal` | Personal data (`user_profile.json`, `state.json`, `journal/YYYY-MM-DD.md`), personal agent overrides |
+| Repo | Visibility | Owns |
+|---|---|---|
+| `tyoon10/optimind` (this repo) | Public | **The system** — canonical `schemas/`, paste-ready `routines/` prompts, generic `.claude/agents/`, the `dashboard/` PWA, the `optimind-sdk/` Python reference implementation, and this design doc |
+| `optimind-journal` | Private | **The data** — `CLAUDE.md` (the active cloud system prompt), `user_profile.json`, `state.json`, `comprehensive_memory.md`, `journal/YYYY-MM-DD.md`, `daily/YYYY-MM-DD.json`, personal `.claude/agents/` overrides |
 
-Bound at runtime via `OPTIMIND_JOURNAL_PATH`. See `schemas/optimind_interface.md`.
+The two bind at **runtime**, two different ways depending on path:
+- **Cloud (primary):** the Claude Code session is launched directly on the `optimind-journal` checkout; the journal repo's own `CLAUDE.md` + `.claude/agents/` drive it. No env-var indirection — the session *is* in the journal repo.
+- **Local SDK / CLI (reference):** the `optimind-sdk/` Python app discovers the journal via the `OPTIMIND_JOURNAL_PATH` environment variable and applies LSP-style override resolution (base `optimind/.claude/agents/` + journal override layer). See `schemas/optimind_interface.md`.
 
 ### Surfaces
 
@@ -38,48 +42,42 @@ Bound at runtime via `OPTIMIND_JOURNAL_PATH`. See `schemas/optimind_interface.md
   - Constraint (confirmed against the docs): cloud CC **cannot** read a repo's `.mcp.json` stdio tools or run `.claude/settings.json` hooks — those are CLI-only. So the structured-logging contract is encoded as **CLAUDE.md instructions + schemas**, not MCP tools, and there is **no `UserPromptSubmit`/`Stop` hook** in cloud (verbatim logging and git-sync are agent-followed per CLAUDE.md, not runtime-guaranteed).
 - **Dashboard — structured capture.** A static PWA at `optimind/dashboard/` (Cloudflare Pages) that writes to `optimind-journal` via the **GitHub API** from the browser. Serverless — no backend.
 - **Scheduled — CC Routines + GitHub Actions.** Morning brief / reflection / weekly review run as **cloud CC Routines**; deterministic jobs (decay, lint) run as **GHA**. Both are cloud; neither needs a local host.
-- **Slack — REMOVED.** The user no longer uses Slack. `optimind-sdk/src/server.py` + `slack_format_hook` + `slack-bolt`, and the legacy `optimind/src/` v1 tree, are slated for deletion (see §10.3). Not a notification channel.
-- **Local `claude` CLI — dev only.** The stdio MCP server (`.mcp.json` → `bin/optimind_mcp_server.py`) and the `SessionStart` bootstrap hook are for local development/testing. They are **not** on the production cloud path.
+- **Slack — REMOVED (4.0.0).** The Slack server, `slack_format_hook`, the `slack-bolt` dependency, and the legacy `optimind/src/` v1 tree were deleted in the 4.0.0 cloud-native pivot. Slack is not a surface and not a notification channel.
+- **Local `claude` CLI — dev/reference only.** The stdio MCP server (`.mcp.json`) and the `SessionStart` bootstrap hook exist in `optimind-sdk/` for local development/testing of the reference implementation. They are **not** on the production cloud path — cloud sessions cannot load `.mcp.json` stdio tools or run `.claude/settings.json` hooks (CLI-only).
 
 ### Capabilities
 
-> **Cloud-reality note (2026-05-28 replan):** the `mcp__optimind__*` tools and the `UserPromptSubmit`/`Stop` hooks below are the **local-CLI / reference** layer. They do **not** run in the cloud (primary) surface. In cloud, the same behaviors are achieved by the agent following `optimind-journal/CLAUDE.md` + writing files to match the schemas. `src/tools/*.py` (esp. `do_log_field`) is the **canonical reference algorithm** the CLAUDE.md instructions and the dashboard JS both mirror.
+> **How to read this table.** Two columns, two paths. The **cloud path (primary)** column is how the live system actually does each thing: the agent follows `optimind-journal/CLAUDE.md` + the canonical schemas, using only built-in Read/Write/git tools — **no MCP tools, no hooks** (those are CLI-only and don't run in cloud). The **SDK reference column** is the `optimind-sdk/` Python implementation — the *canonical reference algorithm* + local-CLI tooling that the CLAUDE.md instructions and the dashboard JS both mirror. It is not the production runtime. The single thing to internalize: **in cloud, these behaviors are agent-followed contracts in CLAUDE.md, not runtime-guaranteed hooks.**
 
-| Capability | Implementation |
-|---|---|
-| Multi-day journal read | `mcp__optimind__get_recent_journal`, `mcp__optimind__search_journal` |
-| Verbatim user-input logging | `UserPromptSubmit` hook → `journal/YYYY-MM-DD.md` (runtime-guaranteed, not model-discretionary) |
-| Agent-written log entries | `mcp__optimind__log_entry` (model-chosen content, with dedup) |
-| State (mode + constraints + focus) | `get_state` / `set_state` over `state.json`; modes: `STANDARD`, `EXAM_MODE`, `DEEP_WORK`, `RECOVERY` |
-| Preference rules | `get_rules` / `add_rule` / `delete_rule` over `user_profile.json`; PENDING semantics at confidence `< 0.5` |
-| Structured daily logs | _not yet implemented — see §7.3 for proposed `daily/YYYY-MM-DD.json` artifact_ |
-| Dashboard → journal mirror | _not yet implemented — see §7.5 dual-write contract_ |
-| Today's protocol | _not yet implemented — see §7.4_ |
-| Long-term memory promotion from logs | _partial — see §7.5 + §8.3 (reflection must read both journal AND daily files)_ |
-| Subagent delegation | `nutritionist`, `scheduler`, `analyst` defined in `.claude/agents/` (generic) + override layer in optimind-journal |
-| Web search | Enabled on main + nutritionist + analyst |
-| Git sync of journal | `sync_hook` commits + pushes the optimind-journal repo after each turn |
+| Capability | Cloud path (primary, live) | SDK / local-CLI reference |
+|---|---|---|
+| Multi-day journal read | Built-in `Read` / `Grep` over `journal/*.md` per the turn-start read levels (§6.5) | `get_recent_journal`, `search_journal` tools |
+| Verbatim user-input logging | Agent-followed contract: CLAUDE.md "How to Log" mandates the verbatim `### HH:MM \| User` line before reasoning. **Agent-followed, not runtime-guaranteed.** | `UserPromptSubmit` hook → `journal/*.md` (runtime-guaranteed in the CLI path) |
+| Agent-written log entries | Agent writes `### HH:MM \| Agent` entries per CLAUDE.md format | `log_entry` tool (model-chosen content, with dedup) |
+| State (mode + constraints + focus) | Agent Reads/Writes `state.json`; modes e.g. `STANDARD`, `EXAM_MODE`, `DEEP_WORK`, `RECOVERY` | `get_state` / `set_state` |
+| Preference rules | Agent Reads/Writes `user_profile.json` rules; PENDING semantics at confidence `< 0.5`; schema-validated | `get_rules` / `add_rule` / `delete_rule` |
+| Structured daily logs | ✅ Shipped — `daily/YYYY-MM-DD.json` (§7.3), schema `schemas/daily_log.schema.json`; agent dual-writes per CLAUDE.md "Structured Logging" | `daily.py` (`do_log_field`) — reference dual-write algorithm |
+| Dashboard → journal mirror | ✅ Shipped — every structured write also appends a `### HH:MM \| Dashboard` mirror line to `journal/*.md` (§7.5 dual-write) | `do_log_field` performs both writes |
+| Today's protocol | ✅ Shipped — Morning Brief Routine writes the `protocol` block into `daily/<date>.json` (§7.4) | — |
+| Three-tier knowledge model | ✅ Shipped (4.1.0) — rules carry `why_brief` + `mechanism_ref`; mechanism records live in `comprehensive_memory.md`; sync-walk on Reflection (§6.6) | `mechanism.schema.json`; analyst/scheduler/nutritionist override patterns |
+| Long-term memory promotion from logs | ✅ Shipped — nightly Reflection Routine reads both `journal/*.md` and `daily/*.json` (§7.5 + §8.3) | — |
+| Subagent delegation | `nutritionist` / `scheduler` / `analyst` in `optimind-journal/.claude/agents/` (the cloud session loads the journal's agents directly) | generic base layer in `optimind/.claude/agents/` + LSP override resolution |
+| Web search | Enabled on the main agent + nutritionist + analyst | same |
+| Git sync of journal | Agent-followed contract: CLAUDE.md "Critical write contracts" mandates commit + push to `main` after each turn. **Agent-followed, not runtime-guaranteed.** | `sync_hook` (Stop) commits + pushes (runtime-guaranteed in the CLI path) |
 
-### Not yet built (prioritized after §4.6 + §7 + §8 decisions)
+### Built and shipped since the original plan
 
-**Near-term, unblocks the new architecture (in dependency order):**
-1. **`schemas/daily_log.schema.json`** — formal schema for `daily/YYYY-MM-DD.json` (§7.3). Nothing else can land cleanly without this.
-2. **Daily-log MCP tools with dual-write** — `get_daily`, `log_field` (sleep/meal/caffeine/routine/workout), `set_protocol`. **Every `log_field` write must also append a `Dashboard`-role line to `journal/<date>.md`** (§7.5). Read/write via `OPTIMIND_JOURNAL_PATH`.
-3. **`SessionStart` hook** in optimind that clones/pulls optimind-journal and sets `OPTIMIND_JOURNAL_PATH` — without this, CC mobile sessions can't see personal data.
-4. **`.mcp.json`** at repo root so any CC session auto-registers the optimind MCP server.
-5. **Morning brief Routine** — generates today's `protocol` (§7.4). Validates the whole pipeline end-to-end before the dashboard ships.
-6. **Dashboard MVP — "Today" view only** — protocol checklist + the four logging forms (sleep, meal/caffeine, routine, workout). Calls the dual-write tools from item 2. No trends, no rule mgmt yet.
-7. **Scheduled-jobs scaffolding** — `.github/workflows/` for the GHA jobs; a `routines/` directory for CC Routine prompts (per §8).
-8. **Reflection pipeline** — `scripts/reflect.py` that the 22:00 Routine invokes; reads **both** `journal/*.md` and `daily/*.json` (§7.5); emits `MemoryAction` deltas applied via existing tools.
+Everything in the original "near-term unblock" list has landed (see §10.3 for the task ledger and PRs): `daily_log.schema.json`, the dual-write algorithm (`daily.py`), the three Routines, the dashboard MVP, the Reflection pipeline. **4.1.0 added the three-tier knowledge model** (§6.6) on top. The remaining open work is dashboard polish + analytics (sleep/workout forms, trends, the PENDING rule-review queue) — see the §10.3 task table, items 9–15.
 
-**Mid-term:**
+**Mid-term (still open):**
 - Calendar integration (read-only) for morning brief
 - Anomaly detection thresholds (currently no threshold config)
-- PENDING rule review queue in dashboard
+- PENDING rule review queue in dashboard (§10.3 item 14)
 
 **Deferred / removed:**
-- Slack server as primary surface — see §10
-- Wearable / voice input — see §10
+- Slack server (removed in 4.0.0) — see §10/§11
+- Wearable / voice input — see §11
+- Remote / hosted MCP server (would reintroduce a 24/7 host) — see §11
 
 ---
 
@@ -175,7 +173,7 @@ Five operating principles fall out of that framing — they govern §4.2, §6, �
 2. **Memory accrues; don't re-ask.** A great doctor opens your file before the visit. Every session re-orients from `journal/*.md` + `user_profile.json` + `state.json` (see §6.3); the model never assumes continuity with a previous turn. Captured data is durable; conversation context is not.
 3. **Minimum-viable structure.** Force structure only where it pays off downstream — numeric trends, compliance %, time-of-day distributions. Everything else lives in prose, parsed when needed. The 7-category audit (§4.2) is the discriminator: real-time numerics → forms; language → chat.
 4. **Surface gaps, not noise.** A coach notices what you *aren't* logging. Reflection and the dashboard nudges (§7.8) flag **capture gaps** (days with no sleep log), **open loops** (User questions in the last 7d with no resolution), and **adherence drops** (routine compliance trending down). These are higher signal than another aggregate chart.
-5. **Beliefs evolve on evidence.** The system's model of you (rules in `user_profile.json`) updates from observed behavior under PENDING semantics (§7.5 + §8.3) — proposals surface for review, never silently override an explicit user rule.
+5. **Beliefs evolve on evidence.** The system's model of you (rules in `user_profile.json`) updates from observed behavior under PENDING semantics (§7.5 + §8.3) — proposals surface for review, never silently override an explicit user rule. The *why* behind each rule is itself versioned: the three-tier knowledge model (§6.6) separates the protocol (the what) from the mechanism (the science), so a rule's stated reason can be re-validated and corrected on its own timescale — the surface that caught a stale four-month-old mechanism inversion.
 
 The four cognitive lenses from `comprehensive_memory.md` — **Neuro-Sleep / Nutrition / Psychology-Coach / Strategy** — are the standing frame the system reasons in. Trend cards (§7.8), Weekly Review (§8.2), and Reflection (§8.3) organize observations under those four heads rather than ad-hoc groupings, so the user always knows which lens a finding belongs to.
 
@@ -289,7 +287,7 @@ The user's primary daily interface is CC mobile chat. Routines are scheduled fir
 - **Trigger:** Event happens (woke up, ate, finished workout, took supplement).
 - **Steps:**
   - **Structured (default):** Dashboard → tap the relevant row in "Today" → form prefilled with `time = now` → adjust + submit. API dual-writes (§7.5): `daily/<date>.json` (structured) + `journal/<date>.md` `Dashboard`-role mirror.
-  - **Flexible (when structured doesn't fit):** Open CC mobile → "logged: cold shower 7:35, felt foggy after". Session writes verbatim to `journal/<date>.md` (UserPromptSubmit hook) AND parses the structured part into `daily/<date>.json` via a `log_field` tool.
+  - **Flexible (when structured doesn't fit):** Open CC mobile → "logged: cold shower 7:35, felt foggy after". The cloud session writes the verbatim `### HH:MM | User` line to `journal/<date>.md` (per CLAUDE.md "How to Log" — agent-followed, no hook in cloud) AND parses the structured part into `daily/<date>.json` with a matching `Dashboard` mirror line (the CLAUDE.md dual-write; mirrors the SDK `do_log_field`).
 - **System reads:** existing `daily/<date>.json` for dedup; rules for validation (e.g., "caffeine after 2 PM" rule → warn).
 - **System writes:** see Steps above; if validation surfaces a rule deviation, an `Agent` journal entry capturing it.
 - **Long-term memory:** Both paths feed the nightly reflection (§7.5, §8.3) — no orphan inputs.
@@ -323,7 +321,9 @@ The user's primary daily interface is CC mobile chat. Routines are scheduled fir
 
 ## 6. Derived system-prompt requirements **[GROUNDED — will update as §3–§5 fill in]**
 
-> _Once goals + flows are specified, this section converts them to concrete edits in `optimind-sdk/CLAUDE.md` and `.claude/agents/*.md`._
+> _Once goals + flows are specified, this section converts them to concrete edits in the **active** system prompt and the agent overrides._
+>
+> **Which prompt to edit — read this first.** The **active runtime system prompt is `optimind-journal/CLAUDE.md`** (private repo). A push there takes effect on the very next Routine fire and every new chat session (the prompt is sealed at session start — see §4.8). This is the highest-leverage knob. `optimind-sdk/CLAUDE.md` (public, in this repo) is **not** the runtime prompt — it is a reference template with `{{USER_NAME}}` / `{{USER_CITY}}` placeholders that a developer adapting the repo would fill in; periodically sync the *generic* parts of the journal CLAUDE.md back into it, but never expect edits there to change runtime behavior. Agent personas: generic base in `optimind/.claude/agents/*.md`, personal overrides in `optimind-journal/.claude/agents/*.md`. (Matches README §"One pitfall worth naming" and governance rule 4.)
 
 ### 6.1 Existing principles (keep)
 - Holistic reasoning (cross-domain trace)
@@ -332,14 +332,17 @@ The user's primary daily interface is CC mobile chat. Routines are scheduled fir
 - Subagent delegation only when domain depth is needed
 
 ### 6.2 Existing principles (revise)
-- ~~Slack formatting rules~~ → **Mobile-app markdown formatting.** Drop the `*bold*` / `•` Slack idioms. CC mobile renders standard markdown; `slack_format_hook` should be removed from the default hook set and kept only behind a flag for the (now-secondary) Slack notification channel.
+- ~~Slack formatting rules~~ → **Mobile-app markdown formatting.** The `*bold*` / `•` Slack idioms are gone with Slack (removed in 4.0.0; `slack_format_hook` deleted). CC mobile renders standard markdown — write plain markdown, no Slack mrkdwn conversion anywhere.
 
 ### 6.3 New principles (from §4.6 ephemeral runtime)
-- **Re-orient from journal, not from memory.** Every session starts cold. The system prompt must include an explicit step: "before reasoning, read today's journal and `state.json`." Don't assume continuity with the previous turn unless the journal proves it.
-- **State.json is the only durable mode handle.** If the user said "I'm in EXAM_MODE" three sessions ago, that only persists because `set_state` was called. Never rely on session-resume — `opts.resume = session_id` is not a substitute for state.
-- **Log verbatim before reasoning.** The `UserPromptSubmit` hook (already shipped) guarantees this; the system prompt should not duplicate the responsibility ("the runtime has already logged your input").
-- **Dashboard writes are authoritative.** When the dashboard logs a structured value (e.g. `sleep_score: 84`), the model must treat that as ground truth even if the user later says something different conversationally. Conflicts surface as a question, not a silent override.
-- **No long-running assumptions.** Don't say "I'll check on this in an hour" — there is no "I" between sessions. Anything periodic happens via §10 scheduled jobs.
+
+> These are encoded **as instructions in `optimind-journal/CLAUDE.md`**, because the cloud runtime has no hooks to enforce them — they are agent-followed contracts, not runtime guarantees. (The SDK reference path enforces some of them via hooks; see the §2 capability table.)
+
+- **Re-orient from files, not from memory.** Every session starts cold. CLAUDE.md's turn-start procedure (§6.5) mandates reading the file set that matches the input shape before reasoning. Don't assume continuity with the previous turn unless the journal proves it.
+- **`state.json` is the only durable mode handle.** If the user said "I'm in EXAM_MODE" three sessions ago, that only persists because it was written to `state.json`. Never rely on session-resume — an in-memory session id is not a substitute for state on disk.
+- **Log verbatim before reasoning — by contract, not by hook.** CLAUDE.md "How to Log" mandates writing the verbatim `### HH:MM | User` line first. In cloud there is **no `UserPromptSubmit` hook** to guarantee it (hooks are CLI-only) — the guarantee is the agent following the contract. If a hard runtime guarantee is ever required, it needs the CLI/hook path or a server (out of scope; §11).
+- **Dashboard / structured writes are authoritative.** When a structured value is logged (e.g. `sleep.quality: 7`), the model treats it as ground truth even if the user later says something different conversationally. Conflicts surface as a question, not a silent override (CLAUDE.md "Surface conflicts, don't silently override").
+- **No long-running assumptions.** Don't say "I'll check on this in an hour" — there is no "I" between sessions. Anything periodic happens via the §8 scheduled Routines/jobs.
 
 ### 6.4 To-be-derived from goals & flows
 - _[e.g., "always end a reactive consult with a verification step the user can do in <10 minutes"]_
@@ -384,6 +387,33 @@ For every chat turn:
 **Cost**: HEAVY turns add ~1s (pull) + ~5-7 `Read` calls (~1-2s combined). LIGHT/LIGHT+ turns add nothing meaningful. Median chat turn pays no cost; high-stakes turns pay for fidelity.
 
 **Mechanism note**: `git pull` ≠ "refresh the LLM's context window". `git pull` refreshes files on disk; only `Read` ingests those bytes into the LLM's working context. Both are necessary; neither is sufficient alone. See §4.8.
+
+### 6.6 Three-tier knowledge model — Sources → Mechanisms → Protocols
+**[ANSWERED — 2026-06-07, shipped in 4.1.0]**
+
+The §4.7 principle *"beliefs evolve on evidence"* and §4.8's *"memory accrues; don't re-ask"* needed a knowledge structure that lets the **what** and the **why** of a protocol change on their own timescales. 4.1.0 normalized the knowledge base into three connector-linked tiers. This is the durable-memory schema the system reasons over; it is a contract spanning `user_profile.json` (this repo's `user_profile.schema.json` v1.1), `comprehensive_memory.md` (`mechanism.schema.json`), and `CLAUDE.md` write contract #4. Authoritative spec: `schemas/optimind_interface.md` §"Knowledge-base architecture (v1.1+)" and `comprehensive_memory.md` §5.
+
+| Tier | What it holds | Changes on | Home |
+|---|---|---|---|
+| **Protocols** (hot) | The *what + when + context* of a rule, plus a cached `why_brief` and a `mechanism_ref` connector | **user context** — moves, seasons, schedules (frequent) | `user_profile.json` rules (`PreferenceRule`) |
+| **Mechanisms** (warm) | The *why* — an addressable causal claim with a stable id `mech.<domain>.<slug>`, `sources[]`, `last_reviewed`, `confidence` | **science** (rare, external) | `comprehensive_memory.md`, as HTML-anchored subsections (`<a id="mech.sleep.thermal_onset">`) |
+| **Sources** (cold) | Full citations + as-derived reasoning | append-only | nested in each mechanism's `sources[]`; full derivation in `journal/*.md` |
+
+**Why split protocol from mechanism.** Coupling them meant a context change (e.g. a schedule shift) forced touching the science, and vice versa. Separating them also gives an inline error-detection surface: a protocol whose `why_brief` contradicts the mechanism it cites is catchable on read — the surface that caught a four-month-old "cold shower pre-sleep to lower core temp" inversion (now corrected; see `mech.sleep.thermal_onset`), the bug that motivated the change.
+
+**Schema state.** `schema_version` is `"1.1"`; the schema enum permits `["1.0", "1.1"]` during the migration window (flip to `const: "1.1"` once no v1.0 data remains). `why_brief`, `mechanism_ref` (pattern `^mech\.[a-z_]+\.[a-z0-9_]+$`), and `last_reviewed` are optional additions to `PreferenceRule` — so v1.0 data still validates and existing readers keep parsing.
+
+**Three load-bearing invariants** (the connector is an inert string until something walks it — these are the query engine, encoded in CLAUDE.md write contract #4 and the agent overrides):
+
+1. **Denormalization-for-reads (compressed-why-inline).** Every protocol carries a non-empty `why_brief`. The hot path (Scheduler / Morning Brief, the LIGHT/LIGHT+/MEDIUM read levels of §6.5) reads `why_brief` directly and does **not** dereference `mechanism_ref` per-apply. Only HEAVY turns walk the connector to the mechanism record (and optionally to its `sources[]`).
+2. **Coupling / sync.** On any **protocol** update → walk `mechanism_ref` and confirm rule↔mechanism↔sources consistency. On any **mechanism** update → walk back to all referencing protocols and re-validate their `why_brief`. Never update one side silently. The nightly Reflection Routine (§8.2) implements this sync-walk on every fire (analyst override Method §K).
+3. **Re-validation trigger.** Items with `confidence < 0.95` or `last_reviewed > 6 months` nominate themselves for review; Reflection flags them as PENDING until the user revises-or-recommits. (Expect aggressive first-run flagging — most legacy rules sit at 0.9.)
+
+**Runtime read pattern (ties to §6.5 read levels):**
+- **Hot path** (daily protocol generation, LIGHT→MEDIUM): read the rule's `rule` + `why_brief` directly; do not walk the connector.
+- **Cold path** (Q&A consult / decision / backfill, HEAVY): read the rule, walk `mechanism_ref` → read the mechanism record → optionally walk `sources[]` if the rationale is in question. This is exactly the "if a rule under consideration carries `mechanism_ref`, walk the connector" step already in §6.5's HEAVY level.
+
+**Populate-on-create.** Creating a rule that needs a not-yet-existing mechanism is one atomic write: new rule (`user_profile.json`) + new mechanism record (anchor + `sources[]` + `last_reviewed` + `confidence` in `comprehensive_memory.md`) + the deriving journal entry. The runtime never auto-creates mechanism records on demand — this is the nutritionist override's responsibility per CLAUDE.md → Subagents.
 
 ---
 
@@ -682,9 +712,9 @@ Per §4.6, all proactive / periodic behavior is owned here, not by any interacti
 This is the journal → memory loop, mapped to the schedule above. The data-flow diagram and dual-write contract live in §7.5; this is the temporal sequence:
 
 1. **Capture** (interactive, all day):
-   - Mobile → `UserPromptSubmit` hook writes `User`-role line to `journal/<d>.md` (verbatim).
-   - Dashboard → API dual-writes to `daily/<d>.json` (structured) **and** `journal/<d>.md` as `Dashboard`-role line (mirror). Both writes are atomic per submission.
-2. **Reflect** (22:00 Routine) — Analyst reads **both** `journal/*.md` (last 7d) and `daily/*.json` (last 14d). Emits `MemoryAction` deltas. Auto-applies at PENDING confidence (< 0.5); queues anything ≥ 0.5 for human review.
+   - Mobile (cloud CC) → the agent writes the verbatim `User`-role line to `journal/<d>.md` per CLAUDE.md "How to Log" (agent-followed contract; no hook in cloud). If the turn states a structured fact, it also dual-writes `daily/<d>.json` + the `Dashboard` mirror line.
+   - Dashboard → GitHub-API dual-write to `daily/<d>.json` (structured) **and** `journal/<d>.md` as a `Dashboard`-role line (mirror). Both writes are atomic per submission.
+2. **Reflect** (22:00 Routine) — Analyst reads **both** `journal/*.md` (last 7d) and `daily/*.json` (last 14d). Emits `MemoryAction` deltas. Auto-applies at PENDING confidence (< 0.5); queues anything ≥ 0.5 for human review. Also runs the three-tier KB sync-walk + re-validation flagging (§6.6).
 3. **Surface** (dashboard, async) — PENDING list appears as a review queue. User taps approve/reject; approval bumps confidence ≥ 0.5.
 4. **Reinforce** (next Reflect cycle) — repeated observation bumps `updated_at` and confidence on existing rules.
 5. **Decay** (03:00 GHA) — rules unreinforced for 60d → confidence drop; 90d → archive.
@@ -711,7 +741,7 @@ The journal is the audit log throughout — every job's apply/reject action writ
 - **2026-05-28** — Dashboard auth + package manager (user). → **Auth: GitHub OAuth (PKCE) from day one — NOT the earlier PAT-spike-then-harden lean.** Rationale: the primary interface is the Claude *mobile* app, so the dashboard goes straight onto the phone — there's no throwaway-local-spike window, and a long-lived PAT in mobile-browser localStorage is exactly the standing-secret risk OAuth avoids; OAuth gives scoped, revocable, no-raw-token access from the first use. Cost accepted: ~1 extra dev day + a **Cloudflare Pages Function** for the code→token exchange (GitHub's token endpoint has no CORS, so a pure SPA can't exchange directly) — still on-demand serverless, preserving the zero-24/7-host rule. Auth isolated behind `auth.ts`. OAuth callback is pinned to the domain, so the `.pages.dev` v0 callback gets reconfigured if/when a custom domain is adopted. → **Package manager: npm** — first-class on Cloudflare Pages + SvelteKit, zero setup, single small project; commit `package-lock.json` and add `!**/package-lock.json` to `.gitignore` (the `*.json` blanket-ignore drops it otherwise — §10.7).
 - **2026-05-28** — Dashboard repo placement → **`optimind/dashboard/` subdir** (user). Keeps the dashboard reading the canonical schemas directly (single source, no drift); accepts mixed Node/Python toolchain in one repo. Split into its own repo later only if deploy coupling annoys.
 - **2026-05-28** — `schemas/user_profile.schema.json` was silently dropped from the initial commit by the `*.json` gitignore rule. → **Added explicit gitignore negations for schema/config JSON; force-committed the file; documented the gotcha in §10.7 and CLAUDE.md** — Prevents the same silent drop for `daily_log.schema.json`, `.mcp.json`, and the dashboard `package.json` on the build list.
-- **2026-05-28** — Is the `Dashboard` journal role tied to the dashboard *surface*? → **No — `Dashboard` marks any structured `log_field` write, regardless of surface (dashboard API, chat agent calling `log_field`, or a future surface).** Redefined the role contract in `journal_entry.schema.md` and generalized §7.5(1). Rationale: `log_field` is a single surface-agnostic tool that does the dual-write; once CC mobile sessions gain the tool (Tasks 3–4) the agent should call it whenever the user states a structured fact, so chat-logged data reaches the `daily/*.json` trends layer and reflection — not only dashboard taps. Tagging the mirror by surface would fragment the contract and orphan chat-logged structured data. The agent directive lives in `optimind-sdk/CLAUDE.md` (Tools Available).
+- **2026-05-28** — Is the `Dashboard` journal role tied to the dashboard *surface*? → **No — `Dashboard` marks any structured `log_field` write, regardless of surface (dashboard API, chat agent calling `log_field`, or a future surface).** Redefined the role contract in `journal_entry.schema.md` and generalized §7.5(1). Rationale: `log_field` is a single surface-agnostic tool that does the dual-write; once CC mobile sessions gain the tool (Tasks 3–4) the agent should call it whenever the user states a structured fact, so chat-logged data reaches the `daily/*.json` trends layer and reflection — not only dashboard taps. Tagging the mirror by surface would fragment the contract and orphan chat-logged structured data. (At the time, the agent directive was written into the SDK reference prompt; on the cloud path it now lives as the dual-write contract in `optimind-journal/CLAUDE.md` → "Structured Logging".)
 - **2026-05-28** — How is the journal bootstrapped at session start, and how do the MCP tools reach a fresh `claude` CLI session? → **Corrected the Task 3/4 approach after confirming against the Agent SDK + Claude Code docs: (i) `SessionStart` is NOT a Python Agent SDK callback hook (TypeScript-only, like `SessionEnd`); (ii) an in-process `create_sdk_mcp_server` CANNOT be exposed via `.mcp.json`.** Therefore Task 3 = a `.claude/settings.json` `SessionStart` *shell* hook (picked up via the existing `setting_sources=["project"]`) that clones/pulls the journal and writes the resolved path to `$CLAUDE_ENV_FILE`, plus a startup `ensure_journal()` for the SDK-app process (sets `os.environ` before first tool call). Task 4 = a *standalone* stdio MCP server (built on the `mcp` package, importing the existing tool logic) launched by `.mcp.json` — not the in-process SDK server. Env reaches the MCP server process via the `.mcp.json` `env` block. NOTE: `$CLAUDE_ENV_FILE` only affects Bash tool calls, not the MCP server's process env — hence the `.mcp.json` `env` block is the real path-delivery mechanism for the tools.
 - **2026-05-28** — Live verification caught the chat agent logging a free-text caffeine value (no mg), producing a schema-invalid `{time, value}` entry (`amount_mg` required, extra `value` key forbidden). → **Keep `daily_log.schema.json` strict; strengthen agent guidance instead of relaxing the schema.** The `log_field` tool descriptions (`src/tools/daily.py` + `src/mcp_server.py`) and `optimind-sdk/CLAUDE.md` now instruct the agent to ALWAYS pass a structured object for event categories and to ESTIMATE the numeric field (e.g. `amount_mg`) from the source when the user doesn't state it. Rationale: preserves the dashboard's structured-data guarantee and keeps the daily file schema-valid; the chat path leans on the agent's estimates (flagged as estimates via `source`). The standalone MCP server's tool description is the channel that actually reaches a CLI session, so it must carry the same guidance as the SDK `@tool`.
 - **2026-05-28 — REPLAN (cloud-native).** User's primary interface is now the **Claude mobile/web app (cloud CC) connected to `optimind-journal`**; they want zero local-machine / zero-24/7-host operation, and have stopped using Slack. Confirmed against the docs: **cloud CC cannot read `.mcp.json` stdio tools or run `.claude/settings.json` hooks** (CLI-only), and loads only the repo-root `CLAUDE.md`. → **Re-center the architecture on cloud file-I/O:** the interactive agent and scheduled Routines do the structured dual-write themselves (Read/Write/git) guided by `optimind-journal/CLAUDE.md` + the schemas. The Python tools (Tasks 2/4) and the SessionStart hook (Task 3) are **CLI/dev-only + the canonical reference**, not the production path. A **remote-HTTP MCP server is explicitly deferred** (it would reintroduce a 24/7 host). Capture = cloud CC (chat) + dashboard PWA (GitHub API); scheduled = CC Routines + GHA; data = GitHub. Consequence to track: verbatim `User`-line logging and git-sync are **no longer runtime-guaranteed** in cloud (they were hooks) — now agent-followed per `CLAUDE.md`.
@@ -727,6 +757,7 @@ The journal is the audit log throughout — every job's apply/reject action writ
 - **2026-05-30 — Memory persistence model + turn-start procedure made explicit.** → Added **§4.8 Memory persistence model** (files = memory, sessions = stateless caches; three failure modes — stale clone / stale read / lost conversation; fresh vs long-running session symmetry except CLAUDE.md is sealed at session start) and **§6.5 Turn-start procedure** (intent-keyed read levels — LIGHT / LIGHT+ / MEDIUM / HEAVY — keyed to the 7-shape playbook; `git pull --rebase --autostash origin main` only on HEAVY turns where stale data produces wrong advice). Codified in `optimind-journal/CLAUDE.md` as a Turn-start procedure block replacing the descriptive "Context" section. **Key mechanism distinction**: `git pull` refreshes files on disk; `Read` ingests bytes into the LLM's working context — both required, neither sufficient alone. Cancels the earlier proposal for a SessionStart hook (redundant with clone-on-boot). Scope: chat sessions only; Routines have their own per-prompt read lists.
 - **2026-05-30 — User-side workflow rule for CLAUDE.md updates + CLAUDE.md style cleanup.** → Added the explicit user workflow to §4.8: continue conversation in a single open chat session by default; **start a fresh session only when a major CLAUDE.md update lands** (to pick up the new system prompt). Minor file updates (`user_profile.json`, `state.json`) don't need a session restart — the turn-start procedure picks them up via `Read`. Also scrubbed date-specific incident references from `optimind-journal/CLAUDE.md` (kept example dates in literal Backfill prompts; generic-ized the "stale-apigenin failure mode" sentence to a generic example). Rationale: system prompts should encode rules and generic examples, not incident timestamps — those belong in this decision log instead.
 - **2026-06-04 — Compound-input handling made explicit.** → The 7-shape playbook (§4.2) and turn-start table (§6.5) read as one-shape-per-turn, but real turns can mix shapes (a structured-event log + a Q&A consult in one message). The correct behavior was emergent (an LLM classifies softly and the read levels are nested supersets), not stated. Codified the rule in both §6.5 and `optimind-journal/CLAUDE.md` (Input-handling cross-cutting rules): **decompose the writes (one dual-write per loggable element), set the read level to the highest shape present; when ambiguous, classify up.** Closes the under-read gap where a strict agent could latch onto the logging shape and answer the consult half from stale/no reads.
+- **2026-06-07 — Knowledge base normalized into three tiers (shipped 4.1.0).** → The protocol "what" and the mechanism "why" were coupled in the same store, so a context change forced touching the science (and vice versa), and there was no read-time surface to catch a rule whose stated reason had gone stale — the failure that let a four-month-old "cold shower pre-sleep to lower core temp" inversion persist. → **Split into Sources → Mechanisms → Protocols (§6.6).** `user_profile.schema.json` bumped 1.0 → 1.1 (enum permits both during the migration window): `PreferenceRule` gains optional `why_brief` (denormalized hot-path cache), `mechanism_ref` (connector `^mech\.[a-z_]+\.[a-z0-9_]+$`), and `last_reviewed`. New `mechanism.schema.json` for the addressable causal claims, which live as HTML-anchored subsections in `comprehensive_memory.md` with `sources[]` / `last_reviewed` / `confidence`. Three load-bearing invariants govern the connectors: **denormalization-for-reads** (hot path reads `why_brief`, never dereferences per-apply), **coupling/sync** (any rule or mechanism update walks the connector to re-validate the other side — implemented as a sync-walk on every nightly Reflection), **re-validation trigger** (`confidence < 0.95` or `last_reviewed > 6mo` self-nominates for review). Encoded in `CLAUDE.md` write contract #4 and the analyst/scheduler/nutritionist overrides; full spec in `schemas/optimind_interface.md` + `comprehensive_memory.md` §5; rationale in `CHANGELOG.md` [4.1.0].
 - **2026-05-27** — Dashboard deployment shape? → _pending §7.3 input_
 - **2026-05-27** — Reminder channel? → _pending §8.4 input_
 - **2026-05-27** — Privacy posture for cloud-ephemeral sessions handling personal data? → _pending §4.5 input_
@@ -760,8 +791,8 @@ Each task in §10.3 is one feature branch + one PR. Branch names: `feat/<short-n
 | 2b | `log_field` structured-value guidance | ✅ PR #10 | Estimate numeric fields / reshape incomplete input. Same guidance feeds Task A. |
 | 3 | `SessionStart` bootstrap | ✅ PR #8 — **CLI/dev-only** | Not on the cloud path; local clone/pull convenience. |
 | 4 | `.mcp.json` + stdio MCP server | ✅ PR #9 — **CLI/dev-only** | Not on the cloud path; basis for a future remote-HTTP MCP server *iff* hosting is ever wanted (deferred). |
-| 5 | Morning-brief Routine | ◑ PR #11 — **needs reframe** | A cloud Routine has no `set_protocol` tool → reframe `routines/morning_brief.md` to **write the `protocol` into `daily/<date>.json` via file-I/O** + a `System` brief line. |
-| **S** | **Remove Slack** | NEW | Delete `optimind-sdk/src/server.py`, `hooks/slack_format_hook.py`, Slack tokens in `config.py`, `slack-bolt` dep, Slack refs in `agent.py`/`subagents`; and the legacy `optimind/src/` v1 tree. |
+| 5 | Morning-brief Routine | ✅ **DONE / LIVE** | Reframed for cloud: `routines/morning_brief.md` writes the `protocol` block into `daily/<date>.json` via file-I/O + a `System` brief line (no `set_protocol` tool on the cloud path). Live as a claude.ai scheduled agent (05:55 ET). |
+| **S** | **Remove Slack** | ✅ **DONE (4.0.0)** | Deleted the Slack server, `slack_format_hook`, Slack tokens, the `slack-bolt` dep, and the legacy `optimind/src/` v1 tree in the cloud-native pivot. |
 | 6 | Dashboard MVP — `optimind/dashboard/` | ✅ **DONE / LIVE** at `optimind-dashboard.pages.dev` (2026-05-29) | Static PWA (SvelteKit + **npm** + Cloudflare Pages). **GitHub-API dual-write in `writeDaily.ts`** (mirrors `do_log_field`). **GitHub OAuth (PKCE)** via `auth.ts` + Cloudflare Pages Function for token exchange. "Today" = protocol checklist + sleep/meal/caffeine/workout forms (sleep/workout stubbed — see Task 9). |
 | 7 | Scheduled jobs | ✅ **DONE / LIVE** | 3 Routine prompts (`routines/*.md`) live as claude.ai scheduled agents committing to `main` (verified); decay + schema-lint GHA in `optimind-journal` (dry-run). No push infra (reminders = dashboard-pull). |
 | 8 | Reflection pipeline | ✅ **DONE** (folded into `routines/reflection.md`) | Reflection is a cloud Routine reading 7d journal + 14d daily, proposing `user_profile.json` rule deltas with PENDING/threshold semantics. **DRY-RUN** until ~1 week of clean runs, then flip (§9). 2026-05-29 extended with capture-gap + open-loop + override-confirmation detection. |
@@ -772,6 +803,7 @@ Each task in §10.3 is one feature branch + one PR. Branch names: `feat/<short-n
 | **13** | **Trends view (4 cognitive-lens cards)** | After ~2 weeks of capture | One card per lens (Neuro-Sleep / Nutrition / Psychology-Coach / Strategy), each with 2-3 widgets per §7.8 table. Render only when ≥7d data exists per widget; otherwise show a "logging X for Y more days unlocks this" nudge. Pure read from `daily/*.json` — no new data path. |
 | **14** | **Rules view + PENDING review queue** (after Reflection apply-mode flip) | Gated on Reflection DRY-RUN → apply-mode flip (~2026-06-05 if clean) | Sortable rule list (filter by topic / confidence / `updated_at`). PENDING (<0.5) queue at top with Accept / Reject / Snooze buttons that bump confidence ≥0.5 (Accept) or delete (Reject) via the same GitHub API path. Closes the §7.5 promotion loop end-to-end. |
 | **15** | **Monthly Synthesis Routine** (optional, evaluate after 4 Weekly Reviews) | Deferred | New cloud Routine on the 1st of each month: reads last 4 Weekly Reviews + last 30d of daily/json, produces a per-lens trend narrative + identifies stuck open loops. Decide whether to ship based on whether weekly reviews already give enough longitudinal signal. |
+| **KB** | **Three-tier knowledge model** (Sources → Mechanisms → Protocols) | ✅ **DONE (4.1.0, 2026-06-07)** | `user_profile.schema.json` v1.1 (`why_brief` / `mechanism_ref` / `last_reviewed`); new `mechanism.schema.json`; `optimind_interface.md` §"Knowledge-base architecture"; data migration in `optimind-journal` (`comprehensive_memory.md` mechanism records + §5; `user_profile.json` → v1.1; CLAUDE.md write contract #4; agent overrides). Three invariants: denormalization-for-reads, coupling-sync, re-validation. See §6.6 + `CHANGELOG.md` [4.1.0]. |
 
 ### 10.4 Parallel-agent strategy
 
@@ -821,7 +853,7 @@ Lessons captured from setup so they don't recur:
 - **Voice input** — defer until mobile + dashboard prove the flow.
 - **Wearable integration** — manual logging first, automate only after the manual habit sticks.
 - **Multi-user** — single user; no auth complexity beyond a personal token.
-- **Slack** — removed entirely (the user no longer uses it). Not a surface, not a notification channel. Existing Slack code is slated for deletion (§10.3 Task S).
+- **Slack** — removed entirely in 4.0.0 (the user no longer uses it). Not a surface, not a notification channel. The Slack code (server, hook, dep, tokens) and the legacy v1 tree were deleted (§10.3 Task S).
 - **Remote / hosted MCP server** — would let cloud CC use the Python tools directly, but requires a 24/7 host. The cloud path uses file-I/O via `CLAUDE.md` instead. Revisit only if tool-guaranteed writes (vs. agent-followed) become necessary.
 - **Push notifications** — reminders are dashboard-pull for now. Add a push channel only if adherence data shows it's needed.
 - **Runtime-guaranteed verbatim logging in cloud** — was a `UserPromptSubmit` hook (CLI-only). In cloud it's agent-followed per `CLAUDE.md`; a hard guarantee would need the CLI/hook path or a server.

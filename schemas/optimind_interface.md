@@ -60,10 +60,12 @@ The runtime concatenates **base + override** (override appended). If the overrid
 
 When a schema's shape changes (a field is added, renamed, or removed):
 
-1. Bump `schema_version` in the schema file (e.g. `"1.0"` → `"2.0"`).
-2. Add a migration script: `migrations/user_profile_<from>to<to>.py` (e.g. `user_profile_1to2.py`).
+1. Bump `schema_version` in the schema file. Two cases:
+   - **Additive / non-breaking** (new *optional* fields only — e.g. the `"1.0"` → `"1.1"` KB-normalization bump that added optional `why_brief` / `mechanism_ref` / `last_reviewed`): widen the version constraint to an `enum` covering both values (the migration window) so existing v1.0 data still validates. **No transform script is required** — old data is forward-compatible as-is. Flip the `enum` back to a single `const` once no older data remains anywhere.
+   - **Breaking** (a field is renamed, removed, or made required — e.g. a future `"1.x"` → `"2.0"`): proceed to step 2.
+2. For a breaking change, add a migration script: `migrations/user_profile_<from>to<to>.py` (`user_profile_1to2.py` is the stub template kept ready for the next breaking bump).
    - The script reads the old file, transforms it, writes the new file, and SHOULD back up the old version next to it.
-3. The runtime, on load, compares the file's `schema_version` to the schema's `const`. If they differ:
+3. The runtime, on load, compares the file's `schema_version` to the schema's accepted set (a `const`, or the `enum` during a migration window). If the file's version is outside that set:
    - If a forward migration script exists, the runtime suggests the exact command to run.
    - The runtime does NOT auto-migrate (data changes should be explicit and reviewable).
 4. Once migrated, commit the new file in `optimind-journal` and the new schema + script in `tyoon10/optimind`.
@@ -82,7 +84,7 @@ As of `user_profile.schema.json` v1.1, the knowledge base is normalized into thr
 | **Reference / Mechanism** (warm) | Causal claim (the "why"), addressable by stable ID, with nested `sources[]` | changes on **science** (rare, external) | `comprehensive_memory.md` (anchor-ID'd subsections per `mechanism.schema.json`) |
 | **Evidential / Derivation** (cold) | Full study detail + as-derived reasoning | append-only | `journal/*.md` consults, referenced from a mechanism's `sources[]` |
 
-Cardinality is m:n at each seam; collapsed at the current corpus scale so that sources nest INSIDE each mechanism's `sources[]` field rather than being addressable on their own. Promote sources to a dedicated tier when nested pointers prove too thin.
+Cardinality is conceptually m:n at each seam, but the v1.1 implementation collapses it to 1:m — each protocol pins exactly one `mechanism_ref`, and sources nest INSIDE each mechanism's `sources[]` field rather than being addressable on their own. Promote sources to a dedicated tier (and protocols to multi-mechanism) when the collapsed form proves too thin.
 
 ### Connector resolution
 
@@ -94,7 +96,7 @@ A protocol rule's `mechanism_ref` (e.g. `"mech.sleep.thermal_onset"`) resolves t
 ... claim prose ...
 ```
 
-Resolution is a literal anchor lookup against the memory file. The runtime SHOULD NOT auto-create mechanism records on demand — populate-on-create is the Nutritionist subagent's responsibility (see CLAUDE.md → Subagents).
+Resolution is a literal anchor lookup against the memory file. The runtime SHOULD NOT auto-create mechanism records on demand — populate-on-create is the Nutritionist subagent's responsibility (see [`.claude/agents/nutritionist.md`](../.claude/agents/nutritionist.md) → Populate-on-create).
 
 ### Three load-bearing invariants
 
@@ -102,7 +104,7 @@ The connector is an inert string until something walks it. These three invariant
 
 1. **Compressed-why-inline (denormalization-for-reads).** Every protocol rule MUST carry a non-empty `why_brief`. The hot path (Scheduler / Morning Brief generation) reads `why_brief` directly and SHOULD NOT dereference `mechanism_ref` per-apply. The second-order benefit is error detection: a rule whose `rule` text contradicts its `why_brief` is catchable on read.
 2. **Coupling / sync.** On any **protocol** update → walk `mechanism_ref`, confirm consistency. On any **mechanism** update → walk back to all referencing protocols + re-validate/sync `why_brief`. The Reflection routine extension (analyst override) implements this sync-walk on every nightly fire.
-3. **Re-validation trigger.** Items older than **6 months** or below **confidence 0.95** nominate themselves for review. Items past both thresholds are flagged on every Reflection until reviewed.
+3. **Re-validation trigger.** Items older than **6 months** OR below **confidence 0.95** nominate themselves for review (either threshold is sufficient). Items past either threshold are flagged on every Reflection until reviewed.
 
 ### Runtime read pattern
 

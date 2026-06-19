@@ -114,7 +114,7 @@ Move the persona, core directives, and permanent rules into `CLAUDE.md`. This fi
 **What goes in CLAUDE.md** (static, rarely changes):
 - "Performance Architect" persona and tone directives
 - Core reasoning principles (holistic, chain-of-thought, safety)
-- Slack formatting rules
+- Output/formatting conventions (the 3.0 design listed Slack mrkdwn here; removed with Slack in 4.0.0)
 - Timezone and locale
 - Compaction preservation instructions
 
@@ -154,10 +154,16 @@ Decouple side effects from core agent logic using SDK hooks:
 
 | Hook | Event | Replaces |
 |---|---|---|
+| `user_prompt_hook` | UserPromptSubmit | Verbatim user-message logging (runtime guarantee) |
 | `journal_hook` | Stop | Manual `log_interaction()` calls in agent.py (lines 77, 118) |
 | `reflector_hook` | Stop | Entire `ReflectorAgent` class (65 lines, abandoned in v2.0) |
-| `slack_format_hook` | Stop | Future markdown-to-mrkdwn conversion |
-| `sync_hook` | SessionEnd | `asyncio.to_thread(journal_manager.sync)` in slack.py (line 47) |
+| `sync_hook` | Stop | `asyncio.to_thread(journal_manager.sync)` (the v1 Slack handler) |
+
+**`sync_hook` fires on `Stop`, not `SessionEnd`:** `SessionEnd` is not available as a Python SDK
+callback hook (TypeScript only), so the git sync runs on `Stop` after each turn instead. This is
+what `src/hooks/sync_hook.py` registers (`on_stop` → `HookMatcher`) and what `src/agent.py` wires
+under the `"Stop"` event. Frequent syncs are acceptable: `git push` is idempotent and more frequent
+syncs reduce data-loss risk.
 
 **Reflector revival**: The Stop hook analyzes the conversation for implicit preference statements after each turn. If detected, it calls `add_rule()` or `delete_rule()`. Same behavior as the abandoned `ReflectorAgent`, ~20 lines instead of 65, no routing overhead.
 
@@ -187,7 +193,8 @@ Three subagents, each with a focused system prompt and restricted tool access:
 
 **Problem addressed**: #4 (No Conversation Continuity)
 
-Each Slack user gets a persistent Agent SDK session (keyed by `user_id`). The session maintains full conversation state across messages:
+Each conversation gets a persistent Agent SDK session, resumed by `session_id` (`src/agent.py`
+threads it through `run_agent`). The session maintains full conversation state across turns:
 
 ```
 User: "Plan my week"           → session created, plan generated
@@ -223,43 +230,49 @@ Not everything changes. These components are architecturally sound and carry ove
 | Flat-file markdown journal | Preserved | Simple, git-syncable, human-readable |
 | Git sync strategy | Preserved | Pull before read, push after write, PAT auth |
 | `state.json` format | Preserved | Clean schema, works as tool backing store |
-| `user_profile.json` format | Preserved | Pydantic schema, works as tool backing store |
-| Slack-Bolt integration | Preserved | Solid async framework, deduplication logic is correct |
-| FastAPI server | Preserved | Health check, webhook routing, retry-ignore headers |
+| `user_profile.json` format | Preserved (schema 1.1) | JSON-Schema validated; bumped 1.0 → 1.1 in 4.1.0 |
+| Slack-Bolt integration | ~~Preserved~~ Removed in 4.0.0 | Cloud-native pivot dropped Slack entirely |
+| FastAPI server | ~~Preserved~~ Removed in 4.0.0 | No long-running host; entrypoint is now the stdio MCP server |
 | EST timezone handling | Preserved | User is in NYC, journal dates must match local time |
-| Deduplication logic | Preserved | Slack sends duplicate events; current filtering works |
+| Deduplication logic | ~~Preserved~~ N/A post-4.0.0 | Was Slack-event dedup; no webhook surface remains |
 
 ---
 
 ## 3. Architecture Diagram
 
+> **Note (post-4.0.0):** the 3.0 migration originally fronted the Agent SDK runtime with the v2
+> Slack + FastAPI server. The 4.0.0 cloud-native pivot **removed that server entirely** (`server.py`,
+> the Slack hook, the `slack-bolt` dependency). The diagram below reflects the current local SDK: the
+> entrypoint is a stdio MCP server (`bin/optimind_mcp_server.py`, registered in the repo-root
+> `../.mcp.json`) driven by the `claude` CLI; the in-process `src/agent.py` runtime is retained for the
+> `test_agent.py` smoke path. See [README.md](README.md#architecture) for the full two-transport
+> picture and the cloud-native vs. local relationship.
+
 ```
-Slack Message
-    │
-    ▼
-┌─────────────────────────────┐
-│  FastAPI + Slack-Bolt        │  ← Preserved: webhook, dedup, retry-ignore
-│  (server.py)                 │
-└─────────┬───────────────────┘
-          │
-          ▼
-┌─────────────────────────────┐
-│  Agent SDK Runtime           │  ← NEW: replaces OptiMindAgent class
-│  ┌───────────────────────┐  │
-│  │ CLAUDE.md (static)    │  │  ← Persona, directives, formatting rules
-│  │ Tools (dynamic)       │  │  ← Journal, State, Preferences
-│  │ Subagents (optional)  │  │  ← Nutritionist, Scheduler, Analyst
-│  │ Hooks (side effects)  │  │  ← Journal log, Reflector, Sync, Format
-│  └───────────────────────┘  │
-└─────────┬───────────────────┘
-          │
-          ▼
-┌─────────────────────────────┐
-│  Data Layer (preserved)      │
-│  ├── data/journal/*.md       │  ← Flat-file markdown, git-synced
-│  ├── data/state.json         │  ← Mode, constraints, focus
-│  └── data/user_profile.json  │  ← Preference rules (Pydantic)
-└─────────────────────────────┘
+claude CLI ── stdio ──▶ bin/optimind_mcp_server.py ──▶ src/mcp_server.py:run()
+                                                            │
+                          (in-process alt: src/agent.py via create_sdk_mcp_server)
+                                                            │
+                                          shared pure handlers (src/tools/*.py)
+                                                            │
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │  Agent SDK Runtime                                                      │
+    │  ┌───────────────────────┐                                             │
+    │  │ CLAUDE.md (static)    │  ← Persona, directives                      │
+    │  │ Tools (dynamic)       │  ← Journal, State, Preferences, Daily       │
+    │  │ Subagents (optional)  │  ← Nutritionist, Scheduler, Analyst         │
+    │  │ Hooks (side effects)  │  ← UserPrompt log, Journal, Reflector, Sync │
+    │  └───────────────────────┘                                             │
+    └───────────────────────────────┬───────────────────────────────────────┘
+                                     ▼
+┌─────────────────────────────────────────────────────────┐
+│  Data Layer — private optimind-journal checkout          │
+│  resolved from $OPTIMIND_JOURNAL_PATH                    │
+│  ├── journal/*.md         ← Flat-file markdown, git-synced│
+│  ├── state.json           ← Mode, constraints, focus      │
+│  ├── daily/*.json         ← Structured daily logs         │
+│  └── user_profile.json    ← Preference rules (schema 1.1) │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## 4. Risk Register

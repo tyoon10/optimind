@@ -2,6 +2,25 @@
 
 All notable changes to the OptiMind project will be documented in this file.
 
+## [4.1.1] - 2026-06-19
+### Documentation & knowledge-base consistency pass
+
+A full audit of both repos (`optimind` + `optimind-journal`) for doc cleanliness, cross-file consistency, and schema↔data alignment. Corrections and de-staling only — no architecture change.
+
+**Public repo (`optimind/`):**
+- **`routines/reflection.md` — load-bearing fix.** Step 9's apply-mode `schema_version` check accepted only `"1.0"` and would `STOP` on the live `"1.1"` profile, silently blocking every nightly rule-write once apply-mode is on; it now accepts the migration-window enum `["1.0","1.1"]`. Added the explicit KB sync-walk steps (analyst Method §K: re-validation scan + rule↔mechanism connector-walk + coverage line) that write-contract #4 and `comprehensive_memory.md` §5 say the nightly Reflection performs — the prompt previously described it nowhere.
+- **`routines/morning_brief.md`** — each item's "why" now reads the rule's cached `why_brief` (the v1.1 hot-path read) rather than re-deriving from topic+excerpt.
+- **`optimind-sdk/`** — de-staled to the actual stdio-MCP local SDK: removed deleted-`src/server.py` / Slack / FastAPI references (pre-4.0.0); documented the real entrypoint; reconciled the `sync_hook` event (`Stop`) between README and ARCHITECTURE; bumped the SDK's expected `schema_version` to `1.1`; dropped Slack env vars from `.env.example`.
+- **`docs/`** — rewrote `USER_FLOW_PLAN.md` to the cloud-native + three-tier architecture (added the missing §6.6 three-tier model; fixed the §6 system-prompt pointer that aimed edits at the wrong `CLAUDE.md`); deleted the obsolete `SUBAGENT_TRAINING.md`; added "Superseded (pre-4.0.0)" banners to the three remaining v1/v2 design docs.
+- **`schemas/`** — `daily_log.schema.json` gained an optional `metrics` map (graded daily readings like `back_pain`, distinct from binary `routine` completions; additive, `const "1.0"` unchanged). Corrected cardinality wording (`1:m`, not `m:n`) in `mechanism.schema.json` + `user_profile.schema.json` + `optimind_interface.md`; the `const`→accepted-set migration wording (the profile schema uses an `enum` during the window); the migration-script story (1.0→1.1 was additive/no-script; `user_profile_1to2.py` is the next-breaking-bump template); and the re-validation trigger (`OR`, not `and`).
+- Misc: README "four canonical contracts" → **five** (added `mechanism.schema.json`); the three generic agents' "Respond in Slack format" → markdown; deleted the dead-stack root `.env.example` (Gemini Vertex + Slack + Cloud Run); fixed a dead `CLAUDE.md → Subagents` pointer.
+
+**Private repo (`optimind-journal/`):**
+- **Caffeine cutoff harmonized to 2:00 PM** across all rules + the mechanism record (was split 2:00 / 2:30). Basis: Gardiner et al. 2023 meta-analysis (standard coffee ≥8.8h before bed); ~22:30 bedtime − ~9h ≈ 2:00 PM.
+- **Coupling-sync repairs (the core invariant):** re-pointed three mis-wired `mechanism_ref`s — Morning Hydration → `mech.nutrition.morning_hydration` (resolves the orphan; was a sleep mechanism), Zinc → new `mech.nutrition.mineral_absorption` (was `mech.sleep.thermal_onset`), Omega-3 + D3/K2 → new `mech.nutrition.fat_soluble_absorption` (was `mech.nutrition.fat_quality`). Added the two new mechanism records (21 → 23). Zero dangling connectors.
+- **Profile life-facts** updated to match `comprehensive_memory.md` (graduated May 2026, Brooklyn — was "student, Manhattan address").
+- Hygiene: merged a misplaced root-level `2026-05-29.md` into `journal/2026-05-29.md` (write-contract #2) and removed it; `daily/2026-06-07.json` back_pain moved `routine`→`metrics`; `magnesium_stack`→`mg_stack` id; `combine.py` portable path; CLAUDE.md internal-consistency fixes (schema inventory, read-level table, dead §-refs, espresso 65 mg).
+
 ## [4.1.0] - 2026-06-07
 ### Knowledge-base normalization — three-tier model with mechanism connector
 
@@ -26,9 +45,9 @@ User-profile schema bumped 1.0 → 1.1 to support a three-tier knowledge model: 
 - `comprehensive_memory.md`: 21 mechanism records carved out across §§1–4 with anchors, sources, last_reviewed, confidence; new §5 Knowledge Architecture (~6 lines) stating the three invariants.
 - `user_profile.json`: bumped to `schema_version: "1.1"`. 19/23 rules now carry `why_brief`; 17/23 carry `mechanism_ref`; 23/23 carry `last_reviewed`. The stale `topic:system` pointer rule (`Reference data/journal/comprehensive_memory.md`, v1-era path) was superseded with the new self-referential pointer. Migration was JSON-Schema-validated against v1.1.
 - `CLAUDE.md`: Critical write contracts expanded 3 → 4 (added KB-sync contract); turn-start procedure HEAVY-read step added connector-walk; populate-on-create rule for new mechanisms.
-- `.claude/agents/`: analyst override gained Method §K (re-validation + sync-walk + coverage report on every Nightly Reflection); scheduler gained hot-path read pattern (use `why_brief`, don't dereference per-apply); nutritionist gained populate-on-create rule (new rule + new mechanism + new journal entry are one atomic write).
+- `optimind-journal/.claude/agents/` (the personal overrides only — the generic `optimind/.claude/agents/` base prompts were not touched; a fork supplies the KB wiring in its own override layer): analyst override gained Method §K (re-validation + sync-walk + coverage report on every Nightly Reflection); scheduler gained hot-path read pattern (use `why_brief`, don't dereference per-apply); nutritionist gained populate-on-create rule (new rule + new mechanism + new journal entry are one atomic write).
 
-**Decided thresholds** (stricter than originally proposed): `confidence < 0.95` and `last_reviewed > 6 months` trigger re-validation flag, per user choice at Phase 0c of the proposal. Expect aggressive flagging on the first Reflection — most existing rules at 0.9 confidence will auto-flag.
+**Decided thresholds** (stricter than originally proposed): `confidence < 0.95` OR `last_reviewed > 6 months` triggers the re-validation flag (either threshold is sufficient), per user choice at Phase 0c of the proposal. Expect aggressive flagging on the first Reflection — most existing rules at 0.9 confidence will auto-flag.
 
 **Breaking changes from 4.0.0:**
 - None at the contract level: v1.1 schema permits v1.0 data via the enum form. Existing tooling that reads `user_profile.json` continues to parse it correctly.

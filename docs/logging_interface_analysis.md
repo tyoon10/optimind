@@ -1,3 +1,5 @@
+> **⚠️ Superseded — historical record (pre-4.0.0).** This documents the original choice of journaling interface — Git-synced terminal/PowerShell vs. the then-existing Slack integration — and is the decision that led to the cloud-native pivot: its "Recommended: Claude Code Mobile Workflow" section is where Claude Code mobile was first chosen over Slack, the move formalized in 4.0.0. The implementation details are now stale: `src/core/memory/journal.py`, `main.py`, the `JournalManager`/`GitPython` runtime, and the `bin/*.ps1` PowerShell sync scripts were all removed; the cloud runtime no longer runs a local PowerShell session or syncs via scripts — it is an ephemeral cloud Claude Code session doing file I/O per `optimind-journal/CLAUDE.md`. Retained for decision-history context (why CC-mobile beat Slack); do not treat as current. For current architecture see `docs/USER_FLOW_PLAN.md`, `README.md`, and `CHANGELOG.md` [4.0.0].
+
 # Idiomatic Interface Analysis: OptiMind Journaling
 
 Based on a review of your current architecture (`src/core/memory/journal.py` and `main.py`), here is an analysis of the two journaling interface options. 

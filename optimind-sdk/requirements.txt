@@ -1,7 +1,9 @@
-# OptiMind SDK — local-CLI / reference layer (Slack + FastAPI server removed)
+# OptiMind SDK — local/self-hosted deployment path (Slack + FastAPI server removed in 4.0.0)
+# In-process Agent SDK runtime (src/agent.py) + reference tool/hook implementations.
 claude-agent-sdk>=0.1.48
 
-# Standalone stdio MCP server (bin/optimind_mcp_server.py) exposed via .mcp.json
+# Standalone stdio MCP server (bin/optimind_mcp_server.py), registered in the
+# repo-root ../.mcp.json (one level up from this directory, not co-located here).
 mcp>=1.0.0
 
 # Preserved from v1

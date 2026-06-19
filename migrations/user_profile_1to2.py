@@ -1,14 +1,27 @@
 """
-Placeholder migration: user_profile.json schema 1.0 → 2.0.
+Placeholder migration template: a future BREAKING user_profile.json bump.
 
-Schema 2.0 does not exist yet — this file is a stub so the migration protocol
-in schemas/optimind_interface.md has a concrete template to point at. When the
-profile schema changes:
+No migration script has been needed yet. The only bump so far — 1.0 -> 1.1
+(the 2026-06-07 KB normalization) — was ADDITIVE: it only added *optional*
+fields (why_brief / mechanism_ref / last_reviewed), so existing v1.0 data still
+validates against v1.1 and no transform was required. The schema just widened
+`schema_version` from `const "1.0"` to `enum ["1.0","1.1"]` for the migration
+window (see schemas/optimind_interface.md -> Schema migration protocol).
 
-1. Bump the `const` in schemas/user_profile.schema.json.
-2. Bump SCHEMA_VERSION in optimind-sdk/src/tools/preferences.py.
-3. Fill in transform() below.
-4. Run: python -m migrations.user_profile_1to2 <OPTIMIND_JOURNAL_PATH>
+This stub exists only so that protocol has a concrete template to point at for
+the NEXT *breaking* change — a field renamed, removed, or made required (e.g.
+some future 1.x -> 2.0). When that happens:
+
+1. Set FROM_VERSION / TO_VERSION below to the real from/to and rename this file
+   to match (e.g. user_profile_1_1to2.py).
+2. Tighten the version constraint in schemas/user_profile.schema.json.
+3. Bump SCHEMA_VERSION in optimind-sdk/src/tools/preferences.py.
+4. Fill in transform() below.
+5. Run: python -m migrations.user_profile_<from>to<to> <OPTIMIND_JOURNAL_PATH>
+
+The FROM_VERSION/TO_VERSION below are illustrative placeholders (1.0 -> 2.0),
+not a migration that should be run against the current 1.1 profile. transform()
+deliberately raises until a real breaking schema is defined.
 
 The migration MUST be idempotent (running it twice on already-migrated data
 is a no-op, not a corruption).

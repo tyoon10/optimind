@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tyoon10/optimind/schemas/daily_log.schema.json",
   "title": "OptiMind Daily Log",
-  "description": "Canonical schema for daily/YYYY-MM-DD.json — the structured per-day record holding today's protocol (the morning-brief-generated plan) plus the structured log (sleep/meals/caffeine/snacks/routine/workouts) captured from the dashboard. One file per day in optimind-journal, alongside journal/YYYY-MM-DD.md. Authoritative for numeric values; every field written here is mirrored to journal/<date>.md as a Dashboard-role line (see journal_entry.schema.md §Role write contract). Routine/protocol item ids use the snake_case form of the canonical grep keywords in journal_entry.schema.md (e.g. cold_shower, deep_work) — do not invent synonyms.",
+  "description": "Canonical schema for daily/YYYY-MM-DD.json — the structured per-day record holding today's protocol (the morning-brief-generated plan) plus the structured log (sleep/meals/caffeine/snacks/routine/metrics/workouts) captured from the dashboard. One file per day in optimind-journal, alongside journal/YYYY-MM-DD.md. Authoritative for numeric values; every field written here is mirrored to journal/<date>.md as a Dashboard-role line (see journal_entry.schema.md §Role write contract). Routine/protocol item ids use the snake_case form of the canonical grep keywords in journal_entry.schema.md (e.g. cold_shower, deep_work) — do not invent synonyms.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "date", "tz"],
@@ -66,6 +66,12 @@
           "description": "Map of routine-item id (snake_case canonical keyword) → completion record.",
           "propertyNames": { "$ref": "#/$defs/ItemId" },
           "additionalProperties": { "$ref": "#/$defs/RoutineItem" }
+        },
+        "metrics": {
+          "type": "object",
+          "description": "Map of daily-metric id (snake_case) → a numeric reading tracked over days — e.g. back_pain, mood, hrv, resting_hr, weight_kg. For subjective/clinical signals that are NOT routine completions (use `routine` for binary done/not-done items). The morning-brief and analyst read these for trend + rule gating (e.g. the training rule's 'strength returns at back pain ≤2/5').",
+          "propertyNames": { "$ref": "#/$defs/ItemId" },
+          "additionalProperties": { "$ref": "#/$defs/MetricEntry" }
         },
         "workouts": {
           "type": "array",
@@ -152,6 +158,17 @@
         "done": { "type": "boolean" },
         "time": { "$ref": "#/$defs/LocalTime" },
         "duration_min": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "MetricEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number", "description": "The reading (e.g. 2 for a 2/5 pain score, 58 for HRV ms)." },
+        "scale": { "type": "number", "minimum": 1, "description": "Optional max of a bounded scale (e.g. 5 for a /5 score). Omit for unbounded metrics." },
+        "time": { "$ref": "#/$defs/LocalTime" },
+        "note": { "type": "string", "minLength": 1 }
       }
     },
     "Workout": {

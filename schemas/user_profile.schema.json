@@ -10,7 +10,7 @@
     "schema_version": {
       "type": "string",
       "enum": ["1.0", "1.1"],
-      "description": "Schema version. During the v1.0→v1.1 migration window the enum permits both values; flip to `const: \"1.1\"` once all rules carry schema_version 1.1. Bump via a migrations/user_profile_<from>to<to>.py script."
+      "description": "Schema version (a top-level profile field — individual rules do NOT carry it). During the v1.0→v1.1 migration window the enum permits both values; flip back to `const: \"1.1\"` once no v1.0 profile data remains anywhere. A breaking bump adds a migrations/user_profile_<from>to<to>.py script; an additive bump (optional fields only, like 1.0→1.1) needs none."
     },
     "user_id": {
       "type": "string",
@@ -64,12 +64,12 @@
         "why_brief": {
           "type": "string",
           "minLength": 1,
-          "description": "(v1.1, added 2026-06-07.) A one-line denormalized mechanism cached on the rule. Load-bearing for hot-path reads — the scheduler/morning-brief uses this on every daily protocol build instead of dereferencing mechanism_ref. Also serves as an inline error-detection surface: a rule whose what contradicts its why_brief is detectable without leaving the file. Required content discipline: ≤120 chars, mechanism only (not protocol restated)."
+          "description": "(v1.1, added 2026-06-07.) A one-line denormalized mechanism cached on the rule. Load-bearing for hot-path reads — the scheduler/morning-brief uses this on every daily protocol build instead of dereferencing mechanism_ref. Also serves as an inline error-detection surface: a rule whose what contradicts its why_brief is detectable without leaving the file. Content discipline: one line, mechanism only (not the protocol restated). Target ≤120 chars — the analyst's Method §K flags chronic overflow rather than the schema hard-failing on length."
         },
         "mechanism_ref": {
           "type": "string",
           "pattern": "^mech\\.[a-z_]+\\.[a-z0-9_]+$",
-          "description": "(v1.1, added 2026-06-07.) Stable connector to the mechanism record in comprehensive_memory.md (anchor id of the form mech.<domain>.<slug>). Resolution is m:n with sources (one mechanism, many citations) and 1:m with protocols (one mechanism, many rules cite it). The pattern enforces snake_case lowercase + the mech.<domain>.<slug> shape; runtime resolution against the mechanism store is the analyst's job, not the schema's. Per the coupling-sync invariant (CHANGELOG v4.1.0), any update to this connector triggers a rule↔mechanism↔source sync-walk."
+          "description": "(v1.1, added 2026-06-07.) Stable connector to the mechanism record in comprehensive_memory.md (anchor id of the form mech.<domain>.<slug>). Resolution is 1:m with sources (one mechanism, many citations nested in its sources[]) and 1:m with protocols (one mechanism, many rules cite it — but each rule pins exactly one mechanism). The pattern enforces snake_case lowercase + the mech.<domain>.<slug> shape; runtime resolution against the mechanism store is the analyst's job, not the schema's. Per the coupling-sync invariant (CHANGELOG v4.1.0), any update to this connector triggers a rule↔mechanism↔source sync-walk."
         },
         "last_reviewed": {
           "type": "string",

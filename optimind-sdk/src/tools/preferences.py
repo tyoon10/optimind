@@ -25,7 +25,7 @@ from src.paths import journal_root
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 DEFAULT_PROFILE = {
     "schema_version": SCHEMA_VERSION,
     "user_id": "1",
@@ -52,8 +52,8 @@ def _validate_schema_version(profile: dict) -> None:
     if version != SCHEMA_VERSION:
         raise ValueError(
             f"user_profile.json schema_version is '{version}', runtime expects '{SCHEMA_VERSION}'. "
-            f"Run migrations/user_profile_{version.replace('.', '')}to{SCHEMA_VERSION.replace('.', '')}.py "
-            f"to upgrade."
+            f"Run the matching script in migrations/ (named user_profile_<from>to<to>.py) "
+            f"to reconcile the versions. Migrations are explicit, never automatic."
         )
 
 

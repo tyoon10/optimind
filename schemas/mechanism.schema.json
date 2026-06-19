@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tyoon10/optimind/schemas/mechanism.schema.json",
   "title": "OptiMind Mechanism Record",
-  "description": "Schema for a single mechanism record. Mechanism records live as anchor-ID'd subsections in comprehensive_memory.md (one per protocol-shaping causal claim). The mechanism is the *why* — universal-truth-scoped, changes when science changes, m:n with protocols (one mechanism, many rules cite it via mechanism_ref) and m:n with sources (each mechanism nests its supporting citations in sources[]). Introduced 2026-06-07 as part of the three-tier KB model (see CHANGELOG v4.1.0).",
+  "description": "Schema for a single mechanism record. Mechanism records live as anchor-ID'd subsections in comprehensive_memory.md (one per protocol-shaping causal claim). The mechanism is the *why* — universal-truth-scoped, changes when science changes, 1:m with protocols (one mechanism, many rules cite it via mechanism_ref — but each rule pins exactly one mechanism) and 1:m with sources (each mechanism nests its supporting citations in sources[]). This schema is the LOGICAL contract; in comprehensive_memory.md a record is RENDERED as markdown — `domain` is encoded in the anchor id segment and the enclosing §section, `claim` is the prose body, and `sources`/`last_reviewed`/`confidence` are the trailing `>` metadata line — so the literal JSON keys are not expected to appear verbatim. Introduced 2026-06-07 as part of the three-tier KB model (see CHANGELOG v4.1.0).",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "domain", "claim", "sources", "last_reviewed", "confidence"],

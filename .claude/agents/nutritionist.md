@@ -28,4 +28,4 @@ Always check the user's preference rules for existing nutrition constraints befo
 
 ## Output format
 
-Respond in Slack format: `*Bold*` for headers, `•` for bullets, no markdown tables or `#`/`###` headers.
+Respond in clean markdown: `**bold**` for headers, `-` for bullets, short paragraphs over wide tables on mobile. Lead with the specific recommendation (dose, timing, rationale). (The Slack mrkdwn output path was removed in the 4.0.0 cloud-native pivot.)
