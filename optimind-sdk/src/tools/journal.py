@@ -24,7 +24,7 @@ except ImportError:  # let the pure handlers be imported/tested without the agen
 
 from src.paths import journal_root
 
-TZ = pytz.timezone("America/New_York")  # canonical id; "US/Eastern" is a deprecated alias absent from minimal pytz builds
+TZ = pytz.timezone(os.environ.get("OPTIMIND_TIMEZONE", "America/New_York"))  # locale-configurable; default preserves prior behavior
 
 
 def _journal_dir() -> str:

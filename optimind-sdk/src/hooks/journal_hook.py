@@ -13,7 +13,7 @@ from claude_agent_sdk import HookMatcher
 
 from src.config import journal_root
 
-TZ = pytz.timezone("US/Eastern")
+TZ = pytz.timezone(os.environ.get("OPTIMIND_TIMEZONE", "America/New_York"))
 
 
 async def on_stop(input_data, tool_use_id, context):

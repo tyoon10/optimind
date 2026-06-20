@@ -8,7 +8,7 @@ Canonical format spec for the daily journal files written and read by OptiMind.
 
 - **Path:** `<journal_root>/journal/YYYY-MM-DD.md`
 - **`journal_root`** is resolved from the `OPTIMIND_JOURNAL_PATH` environment variable. See [`optimind_interface.md`](./optimind_interface.md). Daily files live in the `journal/` subdirectory of the journal root, not at its top level — the root also holds `user_profile.json`, `state.json`, `.claude/`, and `daily/*.json`.
-- **One file per day.** Date is the user's *local* date (US/Eastern by default), never bare UTC.
+- **One file per day.** Date is the user's *local* date (the configured timezone; America/New_York by default), never bare UTC.
 - **Append-only within a day.** Existing entries are never edited or reordered by the agent.
 
 ## Entry format

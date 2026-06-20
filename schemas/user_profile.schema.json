@@ -48,7 +48,7 @@
         "created_at": {
           "type": "string",
           "format": "date-time",
-          "description": "ISO-8601 datetime with explicit offset. Bare 'Z' (UTC) suffix is banned — every timestamp must carry the user's offset (US/Eastern by default) per the timezone binding in CLAUDE.md."
+          "description": "ISO-8601 datetime with explicit offset. Bare 'Z' (UTC) suffix is banned — every timestamp must carry the user's local offset (the configured timezone; America/New_York by default) per the timezone binding in CLAUDE.md."
         },
         "updated_at": {
           "type": "string",

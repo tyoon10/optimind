@@ -233,7 +233,7 @@ Not everything changes. These components are architecturally sound and carry ove
 | `user_profile.json` format | Preserved (schema 1.1) | JSON-Schema validated; bumped 1.0 → 1.1 in 4.1.0 |
 | Slack-Bolt integration | ~~Preserved~~ Removed in 4.0.0 | Cloud-native pivot dropped Slack entirely |
 | FastAPI server | ~~Preserved~~ Removed in 4.0.0 | No long-running host; entrypoint is now the stdio MCP server |
-| EST timezone handling | Preserved | User is in NYC, journal dates must match local time |
+| Local-timezone date handling | Preserved | Journal dates use the configured local timezone (default America/New_York), never UTC |
 | Deduplication logic | ~~Preserved~~ N/A post-4.0.0 | Was Slack-event dedup; no webhook surface remains |
 
 ---

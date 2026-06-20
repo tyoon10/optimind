@@ -14,7 +14,7 @@
     },
     "date": {
       "$ref": "#/$defs/DateString",
-      "description": "The user's LOCAL date (US/Eastern by default), matching the journal/<date>.md filename. Never a bare-UTC-derived date."
+      "description": "The user's LOCAL date (the configured timezone; America/New_York by default), matching the journal/<date>.md filename. Never a bare-UTC-derived date."
     },
     "tz": {
       "type": "string",
@@ -69,7 +69,7 @@
         },
         "metrics": {
           "type": "object",
-          "description": "Map of daily-metric id (snake_case) → a numeric reading tracked over days — e.g. back_pain, mood, hrv, resting_hr, weight_kg. For subjective/clinical signals that are NOT routine completions (use `routine` for binary done/not-done items). The morning-brief and analyst read these for trend + rule gating (e.g. the training rule's 'strength returns at back pain ≤2/5').",
+          "description": "Map of daily-metric id (snake_case) → a numeric reading tracked over days — e.g. mood, energy, soreness, hrv, resting_hr, weight_kg. For subjective/graded signals that are NOT routine completions (use `routine` for binary done/not-done items). The morning-brief and analyst read these for trend + rule gating (e.g. a rule that only fires once a tracked metric crosses a threshold).",
           "propertyNames": { "$ref": "#/$defs/ItemId" },
           "additionalProperties": { "$ref": "#/$defs/MetricEntry" }
         },

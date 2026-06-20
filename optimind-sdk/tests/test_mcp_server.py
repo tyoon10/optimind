@@ -65,8 +65,8 @@ def test_dispatch_get_daily_roundtrip(journal):
 
 def test_dispatch_add_and_get_rule(journal):
     msg = mcp_server.dispatch("add_rule",
-                              {"topic": "nutrition", "rule": "no caffeine after 2pm",
+                              {"topic": "nutrition", "rule": "prefers a high-protein breakfast",
                                "confidence": 0.9})
     assert "Added rule" in msg
     rules = mcp_server.dispatch("get_rules", {"topic": "nutrition"})
-    assert "no caffeine after 2pm" in rules
+    assert "prefers a high-protein breakfast" in rules

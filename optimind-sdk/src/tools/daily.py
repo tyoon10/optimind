@@ -29,8 +29,8 @@ except ImportError:  # let the dual-write logic be unit-tested without the agent
 
 from src.paths import journal_root
 
-TZ = pytz.timezone("America/New_York")
-TZ_NAME = "America/New_York"
+TZ_NAME = os.environ.get("OPTIMIND_TIMEZONE", "America/New_York")  # locale-configurable; default preserves prior behavior
+TZ = pytz.timezone(TZ_NAME)
 SCHEMA_VERSION = "1.0"
 
 # Event categories stored as lists under log.* (append, not set).
