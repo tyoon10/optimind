@@ -76,11 +76,6 @@
         "workouts": {
           "type": "array",
           "items": { "$ref": "#/$defs/Workout" }
-        },
-        "focus_sessions": {
-          "type": "array",
-          "description": "The Prime Objective's measurement layer — one entry per deep-work block, logged at the block's end, capturing the two factors of daily output = Σ(quality × hours). Lets the analyst trend focus output over time and tie it to upstream drivers (sleep, the post-lunch dip, meditation adherence).",
-          "items": { "$ref": "#/$defs/FocusSession" }
         }
       }
     }
@@ -184,18 +179,6 @@
         "time": { "$ref": "#/$defs/LocalTime" },
         "duration_min": { "type": "integer", "minimum": 0 },
         "type": { "type": "string", "minLength": 1 }
-      }
-    },
-    "FocusSession": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["quality"],
-      "properties": {
-        "block": { "type": "string", "minLength": 1, "description": "Which block this was, snake_case (e.g. morning_deep_work, afternoon_execution, reading)." },
-        "start": { "$ref": "#/$defs/LocalTime" },
-        "duration_min": { "type": "integer", "minimum": 0, "description": "Length of the focused block in minutes — the 'hours' factor of quality x hours." },
-        "quality": { "type": "integer", "minimum": 1, "maximum": 5, "description": "How much hard cognitive challenge was tackled and solved: 1 = shallow / scattered, 5 = deep hard problem solved. The 'quality' factor of quality x hours." },
-        "note": { "type": "string", "minLength": 1 }
       }
     }
   }

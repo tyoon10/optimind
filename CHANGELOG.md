@@ -2,13 +2,6 @@
 
 All notable changes to the OptiMind project will be documented in this file.
 
-## [4.1.2] - 2026-06-20
-### Focus-output measurement layer
-
-- **`schemas/daily_log.schema.json`**: added an optional `log.focus_sessions[]` array (`FocusSession`: `block`, `start`, `duration_min`, required `quality` 1–5, `note`) — the measurement layer for the user-defined Prime Objective *daily output = Σ(focus quality × hours)*. Additive / non-breaking (`const "1.0"` unchanged).
-- **`routines/reflection.md`**: the nightly Reflection now computes and trends daily **Σ(quality × hours)** from `focus_sessions[]` and correlates it with upstream drivers (prior-night sleep, post-lunch walk, morning focus-primer adherence); it's surfaced first in the System entry. *(Re-paste to the claude.ai Routines UI to take effect.)*
-- The objective itself, the chronotype-aware day architecture, and the focus/meditation/NSDR/sleep protocols are personal-layer data and live in `optimind-journal` (`user_profile.json` rules + `comprehensive_memory.md` §6), not here.
-
 ## [4.1.1] - 2026-06-19
 ### Documentation & knowledge-base consistency pass
 
