@@ -341,7 +341,7 @@ The user's primary daily interface is CC mobile chat. Routines are scheduled fir
 - **Re-orient from files, not from memory.** Every session starts cold. CLAUDE.md's turn-start procedure (§6.5) mandates reading the file set that matches the input shape before reasoning. Don't assume continuity with the previous turn unless the journal proves it.
 - **`state.json` is the only durable mode handle.** If the user said "I'm in EXAM_MODE" three sessions ago, that only persists because it was written to `state.json`. Never rely on session-resume — an in-memory session id is not a substitute for state on disk.
 - **Log verbatim before reasoning — by contract, not by hook.** CLAUDE.md "How to Log" mandates writing the verbatim `### HH:MM | User` line first. In cloud there is **no `UserPromptSubmit` hook** to guarantee it (hooks are CLI-only) — the guarantee is the agent following the contract. If a hard runtime guarantee is ever required, it needs the CLI/hook path or a server (out of scope; §11).
-- **Dashboard / structured writes are authoritative.** When a structured value is logged (e.g. `sleep.quality: 7`), the model treats it as ground truth even if the user later says something different conversationally. Conflicts surface as a question, not a silent override (CLAUDE.md "Surface conflicts, don't silently override").
+- **Dashboard / structured writes are authoritative.** When a structured value is logged (e.g. `sleep.quality: 4`), the model treats it as ground truth even if the user later says something different conversationally. Conflicts surface as a question, not a silent override (CLAUDE.md "Surface conflicts, don't silently override").
 - **No long-running assumptions.** Don't say "I'll check on this in an hour" — there is no "I" between sessions. Anything periodic happens via the §8 scheduled Routines/jobs.
 
 ### 6.4 To-be-derived from goals & flows
@@ -430,7 +430,7 @@ Two responsibilities, equal weight:
 
 | Domain | Fields |
 |---|---|
-| Sleep | `bedtime`, `wake_time`, `sleep_quality` (0–10 or label) |
+| Sleep | `bedtime`, `wake_time`, `sleep_quality` (1–5 or label) |
 | Nutrition | `meal` (time + items), `caffeine` (time + amount), `snack` (time + items) |
 | Routine checklist | `sunlight_exposure`, `cold_shower`, `meditation` (each: done/skipped + optional time + optional duration) |
 | Workout | `time`, `duration`, `type` (strength / cardio / mobility / other), optional notes |

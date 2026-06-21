@@ -58,9 +58,9 @@ def test_dispatch_get_state_default(journal):
 
 
 def test_dispatch_get_daily_roundtrip(journal):
-    mcp_server.dispatch("log_field", {"field": "sleep.quality", "value": 7})
+    mcp_server.dispatch("log_field", {"field": "sleep.quality", "value": 4})
     doc = json.loads(mcp_server.dispatch("get_daily", {}))
-    assert doc["log"]["sleep"]["quality"] == 7
+    assert doc["log"]["sleep"]["quality"] == 4
 
 
 def test_dispatch_add_and_get_rule(journal):

@@ -110,7 +110,7 @@
     <div class="row">
       <div><label>bedtime</label><input type="time" bind:value={sleep.bedtime} /></div>
       <div><label>wake</label><input type="time" bind:value={sleep.wake_time} /></div>
-      <div><label>quality 1–10</label><input type="number" min="1" max="10" bind:value={sleep.quality} /></div>
+      <div><label>quality 1–5</label><input type="number" min="1" max="5" bind:value={sleep.quality} /></div>
     </div>
     <button disabled={busy}>Log sleep</button>
   </form>

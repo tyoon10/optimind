@@ -71,7 +71,7 @@ The following lowercased keywords are the **authoritative vocabulary** the Analy
 ### 06:42 | Dashboard
 [sleep.wake_time] 06:42
 [sleep.bedtime] 23:14
-[sleep.quality] 7
+[sleep.quality] 4
 
 ### 07:42 | User
 Slept 7h. sleep score 84. Skipped caffeine. Doing deep work block 8–11.

@@ -35,7 +35,7 @@ EXAMPLE = {
         ],
     },
     "log": {
-        "sleep": {"bedtime": "23:14", "wake_time": "06:42", "quality": 7},
+        "sleep": {"bedtime": "23:14", "wake_time": "06:42", "quality": 4},
         "meals": [{"time": "08:30", "items": "eggs, oats, blueberries"}],
         "caffeine": [{"time": "08:14", "amount_mg": 95, "source": "espresso"}],
         "snacks": [],

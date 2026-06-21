@@ -27,8 +27,8 @@ describe("applyField (mirrors do_log_field)", () => {
   it("sets scalar sleep fields by dotted path", () => {
     const doc = newDoc("2026-05-28");
     applyField(doc, "sleep.wake_time", "06:42", "06:42");
-    applyField(doc, "sleep.quality", 7, "06:42");
-    expect(doc.log!.sleep).toEqual({ wake_time: "06:42", quality: 7 });
+    applyField(doc, "sleep.quality", 4, "06:42");
+    expect(doc.log!.sleep).toEqual({ wake_time: "06:42", quality: 4 });
   });
 
   it("sets routine items as an object map", () => {

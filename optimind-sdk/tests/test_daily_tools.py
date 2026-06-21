@@ -91,8 +91,8 @@ def test_routine_item_set_and_bool_render(journal):
 
 def test_get_daily_roundtrip_and_default(journal):
     assert daily.do_get_daily(DATE) == {"schema_version": "1.0", "date": DATE, "tz": "America/New_York"}
-    daily.do_log_field("sleep.quality", 7, date=DATE)
-    assert daily.do_get_daily(DATE)["log"]["sleep"]["quality"] == 7
+    daily.do_log_field("sleep.quality", 4, date=DATE)
+    assert daily.do_get_daily(DATE)["log"]["sleep"]["quality"] == 4
 
 
 def test_set_protocol_roundtrip(journal):
@@ -112,7 +112,7 @@ def test_built_document_validates_against_schema(journal, validator):
     """A realistic sequence of writes must produce a schema-valid daily file."""
     daily.do_log_field("sleep.bedtime", "23:14", date=DATE)
     daily.do_log_field("sleep.wake_time", "06:42", date=DATE)
-    daily.do_log_field("sleep.quality", 7, date=DATE)
+    daily.do_log_field("sleep.quality", 4, date=DATE)
     daily.do_log_field("caffeine", {"amount_mg": 95, "source": "espresso"}, time="08:14", date=DATE)
     daily.do_log_field("meal", {"items": "eggs, oats"}, time="08:30", date=DATE)
     daily.do_log_field("workout", {"duration_min": 50, "type": "strength"}, time="08:05", date=DATE)
