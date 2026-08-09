@@ -31,7 +31,34 @@ from src.paths import journal_root
 
 TZ_NAME = os.environ.get("OPTIMIND_TIMEZONE", "America/New_York")  # locale-configurable; default preserves prior behavior
 TZ = pytz.timezone(TZ_NAME)
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+
+
+class DualWriteError(RuntimeError):
+    """
+    A structured write did not land on both sides.
+
+    Raised instead of returning, because a caller that receives a success dict
+    will tell the user "logged" -- and the whole failure mode this guards
+    against is a confirmation the data layer cannot back up. Carries which side
+    completed and the exact command that repairs it.
+    """
+
+    def __init__(self, date: str, field: str, completed: str, detail: str):
+        self.date, self.field, self.completed, self.detail = date, field, completed, detail
+        self.repair = (
+            f"python3 scripts/reconcile_daily_logs.py --date {date}"
+            if completed == "journal"
+            else f"python3 scripts/audit_dual_write.py --start {date} --end {date}"
+        )
+        super().__init__(
+            f"dual-write FAILED for [{field}] on {date}: {detail}. "
+            f"Completed side: {completed or 'neither'}. Repair: {self.repair}"
+        )
+
+    def as_dict(self) -> dict:
+        return {"ok": False, "date": self.date, "field": self.field,
+                "completed_side": self.completed, "error": self.detail, "repair": self.repair}
 
 # Event categories stored as lists under log.* (append, not set).
 LIST_KEYS = {"meals", "caffeine", "snacks", "workouts"}
@@ -150,17 +177,91 @@ def append_dashboard_line(date: str, time: str, field: str, rendered: str) -> st
 
 # --- operations (shared by the MCP tools and the unit tests) ---
 
+def build_write(doc: dict, field: str, value: Any, time: str) -> tuple[dict, Any, str]:
+    """
+    Pure: the updated document, the value as stored, and the exact mirror line.
+
+    Both sides of the dual-write are derived from ONE in-memory operation, so
+    the JSON and the journal cannot describe different things. Extracted from
+    the I/O so it can be tested without a filesystem.
+    """
+    written = apply_field(doc, field, value, time)
+    mirror = f"\n### {time} | Dashboard\n[{field}] {render_value(written)}\n"
+    return doc, written, mirror
+
+
+def _field_present(doc: dict, field: str, written: Any) -> bool:
+    """Confirm the field actually landed, by the same routing apply_field used."""
+    log = doc.get("log") or {}
+    lk = _list_key(field)
+    if lk:
+        return written in (log.get(lk) or [])
+    cur: Any = log
+    for part in (field[4:] if field.startswith("log.") else field).split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return False
+        cur = cur[part]
+    return cur == written
+
+
 def do_log_field(field: str, value: Any, time: Optional[str] = None,
                  date: Optional[str] = None) -> dict:
-    """The dual-write. Updates daily/<date>.json AND appends a Dashboard mirror line."""
+    """
+    The dual-write, with both sides verified before success is reported.
+
+    Order is deliberate: JSON first, journal second. If the journal append
+    fails, the JSON write is rolled back so the pair stays consistent -- a
+    structured-only record is the worse failure, because nothing in the audit
+    log says it exists. Rollback only proceeds when the file still holds
+    exactly what we wrote, so a concurrent writer is never clobbered.
+    """
     date = date or _today_str()
     time = time or _now_hhmm()
-    doc = load_daily(date)
-    written = apply_field(doc, field, value, time)
-    daily_p = save_daily(date, doc)
-    journal_p = append_dashboard_line(date, time, field, render_value(written))
-    return {"date": date, "time": time, "field": field,
+
+    original = None
+    daily_p = _daily_path(date)
+    if os.path.exists(daily_p):
+        with open(daily_p, "r", encoding="utf-8") as f:
+            original = f.read()
+
+    doc, written, mirror = build_write(load_daily(date), field, value, time)
+
+    try:
+        daily_p = save_daily(date, doc)
+        with open(daily_p, "r", encoding="utf-8") as f:
+            reread = json.load(f)
+    except Exception as exc:
+        raise DualWriteError(date, field, "", f"structured write failed: {exc}") from exc
+
+    if not _field_present(reread, field, written):
+        raise DualWriteError(date, field, "", "structured write did not persist the field")
+
+    try:
+        journal_p = append_dashboard_line(date, time, field, render_value(written))
+        with open(journal_p, "r", encoding="utf-8") as f:
+            if mirror.strip() not in f.read():
+                raise IOError("mirror line absent after append")
+    except Exception as exc:
+        _rollback_daily(daily_p, original, doc)
+        raise DualWriteError(date, field, "structured", f"journal mirror failed: {exc}") from exc
+
+    return {"ok": True, "date": date, "time": time, "field": field,
             "daily_path": daily_p, "journal_path": journal_p}
+
+
+def _rollback_daily(path: str, original: Optional[str], written_doc: dict) -> None:
+    """Undo the structured write, but only if nothing else has touched the file."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            if json.load(f) != written_doc:
+                return  # someone else wrote after us; leave their data alone
+        if original is None:
+            os.remove(path)
+        else:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(original)
+    except Exception:
+        pass  # rollback is best-effort; the raised DualWriteError is the contract
 
 
 def do_get_daily(date: Optional[str] = None) -> dict:
@@ -188,8 +289,19 @@ def get_daily_text(args: dict[str, Any]) -> str:
 
 
 def log_field_text(args: dict[str, Any]) -> str:
-    res = do_log_field(args["field"], args["value"], args.get("time") or None)
-    return f"Logged [{res['field']}] at {res['time']} → {res['daily_path']} + journal mirror."
+    """
+    Never say 'logged' unless both paths are confirmed. The failure text names
+    which side landed and how to repair it, so a partial write surfaces in the
+    conversation instead of being discovered weeks later by the Reflection.
+    """
+    try:
+        res = do_log_field(args["field"], args["value"], args.get("time") or None)
+    except DualWriteError as exc:
+        return (f"NOT LOGGED — [{exc.field}] on {exc.date} did not reach both records "
+                f"({exc.detail}). Completed side: {exc.completed or 'neither'}. "
+                f"Repair: {exc.repair}")
+    return (f"Logged [{res['field']}] at {res['time']} — verified in "
+            f"{res['daily_path']} AND the journal Dashboard mirror.")
 
 
 def set_protocol_text(args: dict[str, Any]) -> str:

@@ -47,7 +47,7 @@ def test_log_field_dual_write_scalar(journal):
 
     doc = _read_json(daily_file)
     assert doc["log"]["sleep"]["wake_time"] == "06:42"
-    assert doc["schema_version"] == "1.0" and doc["date"] == DATE
+    assert doc["schema_version"] == "1.1" and doc["date"] == DATE
 
     mirror = journal_file.read_text(encoding="utf-8")
     assert "### 06:42 | Dashboard" in mirror
@@ -90,7 +90,7 @@ def test_routine_item_set_and_bool_render(journal):
 
 
 def test_get_daily_roundtrip_and_default(journal):
-    assert daily.do_get_daily(DATE) == {"schema_version": "1.0", "date": DATE, "tz": "America/New_York"}
+    assert daily.do_get_daily(DATE) == {"schema_version": "1.1", "date": DATE, "tz": "America/New_York"}
     daily.do_log_field("sleep.quality", 4, date=DATE)
     assert daily.do_get_daily(DATE)["log"]["sleep"]["quality"] == 4
 
@@ -125,3 +125,127 @@ def test_built_document_validates_against_schema(journal, validator):
     doc = daily.do_get_daily(DATE)
     errors = sorted(validator.iter_errors(doc), key=str)
     assert not errors, "\n".join(e.message for e in errors)
+
+
+# --- postcondition verification (capture-integrity build) ---------------------
+#
+# The defect these guard against: a write that lands on one side, returns
+# success, and tells the user "logged". Four days of real health data were lost
+# that way before anything noticed.
+
+
+def test_journal_failure_cannot_return_success(journal, monkeypatch):
+    """If the mirror can't be appended, the call must raise, not return."""
+    def boom(*a, **k):
+        raise IOError("disk full")
+    monkeypatch.setattr(daily, "append_dashboard_line", boom)
+
+    with pytest.raises(daily.DualWriteError) as exc:
+        daily.do_log_field("sleep.quality", 3, time="07:00", date=DATE)
+    assert exc.value.completed == "structured"
+    assert "reconcile" in exc.value.repair or "audit" in exc.value.repair
+
+
+def test_journal_failure_rolls_back_the_structured_write(journal, monkeypatch):
+    """
+    A structured-only record is the worse half-write: nothing in the audit log
+    says it exists, so no reconciliation can ever find it.
+    """
+    daily.do_log_field("sleep.wake_time", "06:42", time="06:42", date=DATE)
+    before = (journal / "daily" / f"{DATE}.json").read_text(encoding="utf-8")
+
+    monkeypatch.setattr(daily, "append_dashboard_line",
+                        lambda *a, **k: (_ for _ in ()).throw(IOError("nope")))
+    with pytest.raises(daily.DualWriteError):
+        daily.do_log_field("sleep.quality", 3, time="07:00", date=DATE)
+
+    assert (journal / "daily" / f"{DATE}.json").read_text(encoding="utf-8") == before
+
+
+def test_rollback_removes_a_file_it_created(journal, monkeypatch):
+    monkeypatch.setattr(daily, "append_dashboard_line",
+                        lambda *a, **k: (_ for _ in ()).throw(IOError("nope")))
+    with pytest.raises(daily.DualWriteError):
+        daily.do_log_field("sleep.quality", 3, time="07:00", date=DATE)
+    assert not (journal / "daily" / f"{DATE}.json").exists()
+
+
+def test_rollback_never_clobbers_a_concurrent_writer(journal, monkeypatch, tmp_path):
+    """Rollback proceeds only when the file still holds exactly what we wrote."""
+    daily.do_log_field("sleep.wake_time", "06:42", time="06:42", date=DATE)
+    path = journal / "daily" / f"{DATE}.json"
+
+    def append_then_someone_else_writes(*a, **k):
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc["log"]["meals"] = [{"time": "12:30", "items": "from another session"}]
+        path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        raise IOError("mirror failed after a concurrent write")
+
+    monkeypatch.setattr(daily, "append_dashboard_line", append_then_someone_else_writes)
+    with pytest.raises(daily.DualWriteError):
+        daily.do_log_field("sleep.quality", 3, time="07:00", date=DATE)
+
+    assert _read_json(path)["log"]["meals"][0]["items"] == "from another session"
+
+
+def test_structured_failure_leaves_no_dashboard_line(journal, monkeypatch):
+    """The JSON side fails first, so no mirror line is ever written."""
+    monkeypatch.setattr(daily, "save_daily",
+                        lambda *a, **k: (_ for _ in ()).throw(IOError("read-only fs")))
+    with pytest.raises(daily.DualWriteError) as exc:
+        daily.do_log_field("sleep.quality", 3, time="07:00", date=DATE)
+    assert exc.value.completed == ""
+    assert not (journal / "journal" / f"{DATE}.md").exists()
+
+
+def test_silent_no_op_write_is_caught(journal, monkeypatch):
+    """
+    The exact production failure: save_daily 'succeeds' but the field never
+    persists. Re-reading and checking the field is what catches it.
+    """
+    monkeypatch.setattr(daily, "save_daily", lambda date, doc: daily._daily_path(date))
+    with pytest.raises(daily.DualWriteError) as exc:
+        daily.do_log_field("sleep.quality", 3, time="07:00", date=DATE)
+    assert "did not persist" in exc.value.detail or "structured write failed" in exc.value.detail
+
+
+def test_repeated_events_stay_append_only(journal):
+    for t, mg in (("08:00", 65), ("11:20", 95), ("14:00", 95)):
+        daily.do_log_field("caffeine", {"amount_mg": mg, "source": "coffee"}, time=t, date=DATE)
+    entries = _read_json(journal / "daily" / f"{DATE}.json")["log"]["caffeine"]
+    assert [e["time"] for e in entries] == ["08:00", "11:20", "14:00"]
+    assert (journal / "journal" / f"{DATE}.md").read_text(encoding="utf-8").count("| Dashboard") == 3
+
+
+def test_build_write_derives_both_sides_from_one_operation(journal):
+    """The mirror line must describe exactly what went into the JSON."""
+    doc, written, mirror = daily.build_write(
+        {"schema_version": "1.1", "date": DATE, "tz": "America/New_York"},
+        "caffeine", {"amount_mg": 65, "source": "espresso"}, "08:14",
+    )
+    assert doc["log"]["caffeine"] == [written]
+    assert mirror == "\n### 08:14 | Dashboard\n[caffeine] 08:14 65 espresso\n"
+
+
+def test_verified_write_result_reports_both_paths(journal):
+    res = daily.do_log_field("routine.cold_shower", {"status": "done", "time": "07:35"},
+                             time="07:35", date=DATE)
+    assert res["ok"] is True
+    assert res["daily_path"] and res["journal_path"]
+
+
+def test_tool_text_never_says_logged_on_failure(journal, monkeypatch):
+    monkeypatch.setattr(daily, "append_dashboard_line",
+                        lambda *a, **k: (_ for _ in ()).throw(IOError("nope")))
+    text = daily.log_field_text({"field": "sleep.quality", "value": 3, "time": "07:00"})
+    assert text.startswith("NOT LOGGED")
+    assert "Repair:" in text
+
+
+def test_hardened_writes_remain_schema_valid(journal, validator):
+    daily.do_log_field("sleep.quality", 3, time="07:00", date=DATE)
+    daily.do_log_field("routine.zinc", {"status": "done", "time": "19:30"}, time="19:30", date=DATE)
+    daily.do_log_field("caffeine", {"amount_mg": 65, "source": "espresso", "note": "estimated"},
+                       time="08:14", date=DATE)
+    doc = _read_json(journal / "daily" / f"{DATE}.json")
+    assert list(validator.iter_errors(doc)) == []
