@@ -32,8 +32,20 @@ def _journal_root() -> Path:
     env = os.environ.get("OPTIMIND_JOURNAL_PATH")
     if env:
         return Path(env)
-    # Fallback for a side-by-side checkout: <framework>/hermes-plugin/... -> ../journal
-    return Path(__file__).resolve().parents[3] / "journal"
+
+    # No env var: search upward for a checkout that actually holds the engine.
+    # A fixed parents[N] hop is brittle -- it silently depends on where this
+    # plugin sits inside the framework repo, and got it wrong once already.
+    # Probing for the file we need works from any depth or symlink.
+    here = Path(__file__).resolve()
+    for ancestor in here.parents:
+        if (ancestor / "scripts" / "optimind_core.py").exists():
+            return ancestor
+        for sibling in ("journal", "optimind-journal"):
+            candidate = ancestor / sibling
+            if (candidate / "scripts" / "optimind_core.py").exists():
+                return candidate
+    return here.parents[3] / "journal"  # nothing found; report this path in the error
 
 
 def _engine():
