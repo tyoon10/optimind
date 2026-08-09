@@ -11,7 +11,19 @@ START IN DRY-RUN: do NOT modify user_profile.json. Only write a System journal e
 
 1. Resolve the NYC date (CLAUDE.md -> Timezone).
 2. Read journal/<last 7 days>.md (User + Dashboard lines = ground truth) and daily/<last 14 days>.json (numeric trends), plus user_profile.json (existing rules) and state.json (current mode + constraints).
-3. CAPTURE GAPS — for each of the last 7 days, list any day missing: a sleep entry (`log.sleep`), any caffeine entry, any meal entry, any routine ticks, any workout entry. These are the seeds for dashboard nudges (USER_FLOW_PLAN §7.8). Output as a small block: `Capture gaps (last 7d): sleep [d1, d3]; workouts [d1..d7]; ...`.
+
+2a. INTEGRITY GATE — RUN THIS BEFORE COUNTING ANYTHING. Execute:
+      python3 scripts/audit_dual_write.py --since 14 --json
+    The two records can diverge: when a structured write silently no-ops, the journal keeps the data and `daily/*.json` does not. Counting from the JSON alone then reports a behavior miss the user never had. Use the report to classify every day BEFORE computing compliance:
+      - `matched` — both records agree; count normally.
+      - `journal_only` / `structured_only` / `mixed` — a WRITE DEFECT. The behavior happened. Report it under INTEGRITY, never under capture gaps or compliance, and never let it lower an adherence count. Name the repair: `python3 scripts/reconcile_daily_logs.py --date <d>`.
+      - `needs_input` — the journal states the event but not a time or dose, so no rerun can fix it. Surface it as a question for the user, not as a miss.
+      - `blackout` / `no_data` — genuinely nothing captured. This IS a capture gap.
+      - `in_progress` — the current NYC date. EXCLUDE from every miss count and every denominator. A day still being lived has not failed to record anything.
+    Report three separate counts and never merge them: `journal_confirmed`, `json_confirmed`, `unknown`.
+    If `closed_mismatches > 0`, label the whole output **STRUCTURALLY INCOMPLETE** at the top and state which dates are affected. Do not present trends as settled while a closed day is still diverging.
+
+3. CAPTURE GAPS — for each of the last 7 days, list any day missing: a sleep entry (`log.sleep`), any caffeine entry, any meal entry, any routine ticks, any workout entry. **Exclude any field the integrity gate classified as `journal_only` or `needs_input`** — those were captured, so listing them here is the miscount step 2a exists to prevent. Use the completed-day denominator (today is never in it). Output as a small block: `Capture gaps (last 7d): sleep [d1, d3]; workouts [d1..d7]; ...`, followed by `Integrity (last 14d): matched X/Y; lost writes [dates]; needs input [dates]`.
 4. OPEN LOOPS — scan journal User-lines from the last 7d for questions / requests / decision intents that have no corresponding Agent resolution in the same or a later entry (e.g. user asked "what's the ideal lunch" but no protocol or recommendation followed). List them verbatim with their date.
 5. OVERRIDE CONFIRMATION — for any User-line decision/override ("today no workout", "switch to EXAM_MODE", "tomorrow skip X"): verify the change was reflected in state.json (mode/constraints) and/or the relevant day's `daily/<date>.json` `protocol.source: mobile_override`. Flag misses.
 6. PATTERN DETECTION — detect REPEATED signals only — require an N-of-M threshold (e.g. seen on >=3 of the last 7 days, or a single clear explicit statement). A single observation is not a rule.
