@@ -1,0 +1,8 @@
+manifest_version: 1
+name: optimind
+version: 0.1.0
+description: "Read-only record-integrity monitor for the OptiMind journal: dual-write status, capture coverage, and routine outcomes."
+author: local
+hooks: []
+provides:
+  dashboard: true

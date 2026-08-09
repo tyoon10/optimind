@@ -1,0 +1,72 @@
+/* OptiMind plugin. Inherits the Hermes dashboard theme; only adds what it needs.
+   Status colours always accompany a glyph and a word, never carry meaning alone. */
+
+.optimind {
+  --optimind-ok: #4cb782;
+  --optimind-info: #9b8afb;   /* journal-only: real data, wrong place */
+  --optimind-warn: #f2c94c;
+  --optimind-muted: var(--muted-foreground, #8a8f98);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.optimind__muted { color: var(--optimind-muted); }
+.optimind__info { color: var(--optimind-info); }
+.optimind__warn { color: var(--optimind-warn); }
+.optimind__small { font-size: 12px; }
+.optimind__mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+.optimind__toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.optimind__row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.optimind__metrics { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; }
+.optimind__metric { display: flex; flex-direction: column; gap: 2px; }
+.optimind__metric-value { font-size: 20px; font-variant-numeric: tabular-nums; }
+.optimind__metric .optimind__muted { font-size: 11px; }
+
+.optimind__strip { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+.optimind__cell {
+  width: 34px; height: 40px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-radius: 6px;
+  background: transparent;
+  font-size: 10px;
+  color: var(--optimind-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.optimind__cell:hover { border-color: var(--optimind-info); }
+.optimind__cell.is-selected { outline: 2px solid var(--optimind-info); outline-offset: 1px; }
+.optimind__cell--ok { border-color: rgba(76,183,130,0.45); color: var(--optimind-ok); }
+.optimind__cell--info { border-color: rgba(155,138,251,0.5); color: var(--optimind-info); }
+.optimind__cell--warn { border-color: rgba(242,201,76,0.45); color: var(--optimind-warn); }
+.optimind__glyph { font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+
+.optimind__section {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--optimind-muted); margin: 12px 0 6px;
+}
+
+.optimind__evidence {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--muted, rgba(255,255,255,0.04));
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 6px;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.optimind__table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.optimind__table th {
+  text-align: left; font-weight: 500; font-size: 11px;
+  color: var(--optimind-muted); padding: 6px 8px;
+}
+.optimind__table td { padding: 6px 8px; border-top: 1px solid var(--border, rgba(255,255,255,0.08)); }
+
+.optimind__detail { display: flex; flex-direction: column; gap: 4px; }
