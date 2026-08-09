@@ -144,13 +144,49 @@ export function structuredKeys(doc: DailyLog | null): Record<string, number> {
   return out;
 }
 
+const LEADING_TIME = /^~?\s*([01]?\d|2[0-3]):[0-5]\d/;
+
+/**
+ * Split one array mirror line into the entries it actually describes.
+ *
+ * The writer sometimes batches a whole category onto one line —
+ * `[meals] 08:30 breakfast; 13:30 salad; 19:00 salmon` is three meals, not one.
+ * Counting lines instead of entries reported those as lost writes.
+ *
+ * Semicolons inside parentheses do NOT separate entries: `15:00 60mg matcha
+ * (native L-theanine; AFTER 14:00 cutoff)` is a single drink. Counting bare
+ * times would be wrong too — `18:30-19:30 walk` is a range and
+ * `time corrected 09:30 -> 10:30` is one correction.
+ */
+export function splitEntries(raw: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let buf = "";
+  for (const ch of raw) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    if (ch === ";" && depth === 0) {
+      parts.push(buf);
+      buf = "";
+    } else {
+      buf += ch;
+    }
+  }
+  parts.push(buf);
+
+  // Only segments that OPEN with a timestamp are separate entries.
+  const timed = parts.map((p) => p.trim()).filter((p) => LEADING_TIME.test(p));
+  return timed.length ? timed : [raw.trim()];
+}
+
 /** The same key space from Dashboard mirror lines. */
 export function journalKeys(facts: DashboardFact[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const f of facts) {
     if (!isLogField(f.field)) continue;
     const k = normalizeField(f.field);
-    out[k] = (out[k] ?? 0) + 1;
+    const n = (LIST_KEYS as readonly string[]).includes(k) ? splitEntries(f.raw).length : 1;
+    out[k] = (out[k] ?? 0) + n;
   }
   return out;
 }
@@ -197,7 +233,8 @@ export function classifyDay(
   for (const f of facts) {
     if (!isLogField(f.field) || isResolvable(f)) continue;
     const k = normalizeField(f.field);
-    unresolvable[k] = (unresolvable[k] ?? 0) + 1;
+    const n = (LIST_KEYS as readonly string[]).includes(k) ? splitEntries(f.raw).length : 1;
+    unresolvable[k] = (unresolvable[k] ?? 0) + n;
   }
 
   const journalOnly: string[] = [];

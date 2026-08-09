@@ -6,19 +6,37 @@
       "name": "matched day",
       "why": "Both records agree. The baseline everything else is measured against.",
       "date": "2026-01-10",
-      "daily": { "log": { "sleep": { "wake_time": "07:00", "quality": 3 } } },
+      "daily": {
+        "log": {
+          "sleep": {
+            "wake_time": "07:00",
+            "quality": 3
+          }
+        }
+      },
       "journal": "### 22:00 | Dashboard\n[sleep.wake_time] 07:00\n[sleep.quality] 3/5\n",
-      "expect": { "status": "matched", "journal_only": [], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "matched",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
     },
     {
       "name": "journal only - the write defect",
       "why": "The user supplied the data and the structured write lost it. This must never be reported as a behavior miss.",
       "date": "2026-01-10",
-      "daily": { "log": {} },
+      "daily": {
+        "log": {}
+      },
       "journal": "### 22:00 | Dashboard\n[sleep.wake_time] 07:00\n[sleep.quality] 3/5\n[metrics.back_pain] 2/5\n",
       "expect": {
         "status": "journal_only",
-        "journal_only": ["metrics.back_pain", "sleep.quality", "sleep.wake_time"],
+        "journal_only": [
+          "metrics.back_pain",
+          "sleep.quality",
+          "sleep.wake_time"
+        ],
         "structured_only": [],
         "needs_input": []
       }
@@ -27,97 +45,228 @@
       "name": "structured only - the audit log is incomplete",
       "why": "The inverse defect: numbers exist that the append-only log never recorded.",
       "date": "2026-01-10",
-      "daily": { "log": { "sleep": { "wake_time": "07:00" } } },
+      "daily": {
+        "log": {
+          "sleep": {
+            "wake_time": "07:00"
+          }
+        }
+      },
       "journal": "### 09:00 | User\nmorning\n",
-      "expect": { "status": "structured_only", "journal_only": [], "structured_only": ["sleep.wake_time"], "needs_input": [] }
+      "expect": {
+        "status": "structured_only",
+        "journal_only": [],
+        "structured_only": [
+          "sleep.wake_time"
+        ],
+        "needs_input": []
+      }
     },
     {
       "name": "mixed - divergence both ways",
       "why": "Each record holds something the other lacks.",
       "date": "2026-01-10",
-      "daily": { "log": { "routine": { "zinc": { "status": "done" } } } },
+      "daily": {
+        "log": {
+          "routine": {
+            "zinc": {
+              "status": "done"
+            }
+          }
+        }
+      },
       "journal": "### 22:00 | Dashboard\n[sleep.wake_time] 07:00\n",
-      "expect": { "status": "mixed", "journal_only": ["sleep.wake_time"], "structured_only": ["routine.zinc"], "needs_input": [] }
+      "expect": {
+        "status": "mixed",
+        "journal_only": [
+          "sleep.wake_time"
+        ],
+        "structured_only": [
+          "routine.zinc"
+        ],
+        "needs_input": []
+      }
     },
     {
       "name": "current day is never a miss",
       "why": "A day still being lived has not failed to record anything yet.",
       "date": "2026-01-15",
-      "daily": { "log": {} },
+      "daily": {
+        "log": {}
+      },
       "journal": "### 09:38 | Dashboard\n[sleep.wake_time] 07:05\n",
-      "expect": { "status": "in_progress", "journal_only": ["sleep.wake_time"], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "in_progress",
+        "journal_only": [
+          "sleep.wake_time"
+        ],
+        "structured_only": [],
+        "needs_input": []
+      }
     },
     {
       "name": "blackout - no turn occurred",
       "why": "Nothing was captured because nothing happened. Distinct from a lost write.",
       "date": "2026-01-10",
-      "daily": { "log": {} },
+      "daily": {
+        "log": {}
+      },
       "journal": "### 05:56 | System\nmorning brief\n",
-      "expect": { "status": "blackout", "journal_only": [], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "blackout",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
     },
     {
       "name": "no_data - turns happened but produced no fact",
       "why": "A capture-ritual problem, not a blackout and not a write defect.",
       "date": "2026-01-10",
-      "daily": { "log": {} },
+      "daily": {
+        "log": {}
+      },
       "journal": "### 09:00 | User\nhow should I plan tomorrow?\n",
-      "expect": { "status": "no_data", "journal_only": [], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "no_data",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
     },
     {
       "name": "needs_input - the journal line is incomplete",
       "why": "A meal with no time cannot be projected into JSON at all. No rerun fixes it, so it must not sit in the integrity gate forever.",
       "date": "2026-01-10",
-      "daily": { "log": {} },
+      "daily": {
+        "log": {}
+      },
       "journal": "### 22:00 | Dashboard\n[meals] morning: eggs and toast\n",
-      "expect": { "status": "needs_input", "journal_only": [], "structured_only": [], "needs_input": ["meals[1]"] }
+      "expect": {
+        "status": "needs_input",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": [
+          "meals[1]"
+        ]
+      }
     },
     {
       "name": "needs_input alongside a real defect",
       "why": "One repairable field plus one unrepairable. The repairable one must still fail the gate.",
       "date": "2026-01-10",
-      "daily": { "log": {} },
+      "daily": {
+        "log": {}
+      },
       "journal": "### 22:00 | Dashboard\n[sleep.quality] 3/5\n[workouts] treadmill walk 10min (time not stated)\n",
-      "expect": { "status": "journal_only", "journal_only": ["sleep.quality"], "structured_only": [], "needs_input": ["workouts[1]"] }
+      "expect": {
+        "status": "journal_only",
+        "journal_only": [
+          "sleep.quality"
+        ],
+        "structured_only": [],
+        "needs_input": [
+          "workouts[1]"
+        ]
+      }
     },
     {
       "name": "arrays compare by count",
       "why": "A meal has no stable identity, so three mirror lines against one entry means two facts were lost.",
       "date": "2026-01-10",
-      "daily": { "log": { "meals": [{ "time": "08:00", "items": "eggs" }] } },
+      "daily": {
+        "log": {
+          "meals": [
+            {
+              "time": "08:00",
+              "items": "eggs"
+            }
+          ]
+        }
+      },
       "journal": "### 22:00 | Dashboard\n[meals] 08:00 eggs\n[meals] 12:30 salad\n[meals] 19:00 salmon\n",
-      "expect": { "status": "journal_only", "journal_only": ["meals[2]"], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "journal_only",
+        "journal_only": [
+          "meals[2]"
+        ],
+        "structured_only": [],
+        "needs_input": []
+      }
     },
     {
       "name": "partially resolvable array splits the deficit",
       "why": "Two mirrored coffees, one missing its dose: one repairable, one needs the user.",
       "date": "2026-01-10",
-      "daily": { "log": {} },
+      "daily": {
+        "log": {}
+      },
       "journal": "### 22:00 | Dashboard\n[caffeine] 09:05 espresso, ~65mg (est.)\n[caffeine] 09:10 black coffee, caffeine amount not stated\n",
-      "expect": { "status": "journal_only", "journal_only": ["caffeine[1]"], "structured_only": [], "needs_input": ["caffeine[1]"] }
+      "expect": {
+        "status": "journal_only",
+        "journal_only": [
+          "caffeine[1]"
+        ],
+        "structured_only": [],
+        "needs_input": [
+          "caffeine[1]"
+        ]
+      }
     },
     {
       "name": "bracketed text in User entries is not a fact",
       "why": "Users paste photo captions and timestamps. A file-wide bracket scan would invent divergence.",
       "date": "2026-01-10",
-      "daily": { "log": { "sleep": { "quality": 3 } } },
+      "daily": {
+        "log": {
+          "sleep": {
+            "quality": 3
+          }
+        }
+      },
       "journal": "### 09:38 | User\n[attached cafe menu photo] what should i get\n[2:31 PM] pasted timestamp\n\n### 09:40 | Dashboard\n[sleep.quality] 3/5\n",
-      "expect": { "status": "matched", "journal_only": [], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "matched",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
     },
     {
       "name": "protocol mirror lines are planning, not capture",
       "why": "Counting these would report permanent unfixable divergence on every day with a protocol.",
       "date": "2026-01-10",
-      "daily": { "log": {} },
+      "daily": {
+        "log": {}
+      },
       "journal": "### 06:00 | Dashboard\n[protocol.workout] 06:15-07:00\n[tomorrow.fixed_schedule] program 09:00-16:00\n",
-      "expect": { "status": "blackout", "journal_only": [], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "blackout",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
     },
     {
       "name": "not_reported is not a skip",
       "why": "Nobody asked. Recording it as a skipped habit is the miscount this whole model exists to stop.",
       "date": "2026-01-10",
-      "daily": { "log": { "routine": { "supplements_breakfast": { "status": "not_reported" } } } },
+      "daily": {
+        "log": {
+          "routine": {
+            "supplements_breakfast": {
+              "status": "not_reported"
+            }
+          }
+        }
+      },
       "journal": "### 22:00 | Dashboard\n[routine.supplements_breakfast] not reported\n",
-      "expect": { "status": "matched", "journal_only": [], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "matched",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
     },
     {
       "name": "missing files do not crash",
@@ -125,7 +274,112 @@
       "date": "2026-01-10",
       "daily": null,
       "journal": null,
-      "expect": { "status": "blackout", "journal_only": [], "structured_only": [], "needs_input": [] }
+      "expect": {
+        "status": "blackout",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
+    },
+    {
+      "name": "one mirror line can carry several entries",
+      "why": "The writer batches a whole category onto one line. Counting lines instead of entries reported real, matching data as lost writes.",
+      "date": "2026-01-10",
+      "daily": {
+        "log": {
+          "meals": [
+            {
+              "time": "08:30",
+              "items": "breakfast"
+            },
+            {
+              "time": "13:30",
+              "items": "salad"
+            },
+            {
+              "time": "19:00",
+              "items": "salmon"
+            }
+          ]
+        }
+      },
+      "journal": "### 22:00 | Dashboard\n[meals] 08:30 breakfast; 13:30 salad; 19:00 salmon\n",
+      "expect": {
+        "status": "matched",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
+    },
+    {
+      "name": "a semicolon inside parentheses does not split an entry",
+      "why": "`15:00 60mg matcha (native L-theanine; AFTER 14:00 cutoff)` is one drink, not two.",
+      "date": "2026-01-10",
+      "daily": {
+        "log": {
+          "caffeine": [
+            {
+              "time": "15:00",
+              "amount_mg": 60,
+              "source": "matcha"
+            }
+          ]
+        }
+      },
+      "journal": "### 22:00 | Dashboard\n[caffeine] 15:00 60mg matcha lemonade (native L-theanine; AFTER 14:00 cutoff)\n",
+      "expect": {
+        "status": "matched",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
+    },
+    {
+      "name": "a time range is one entry, not two",
+      "why": "`18:30-19:30 walk` would count as two if we counted bare timestamps.",
+      "date": "2026-01-10",
+      "daily": {
+        "log": {
+          "workouts": [
+            {
+              "time": "18:30",
+              "duration_min": 60,
+              "type": "light walk"
+            }
+          ]
+        }
+      },
+      "journal": "### 22:00 | Dashboard\n[workouts] 18:30-19:30 light walk (60min)\n",
+      "expect": {
+        "status": "matched",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
+    },
+    {
+      "name": "a batched line still detects a genuine shortfall",
+      "why": "Splitting must not become a way to hide real loss: three mirrored meals against one stored entry is still two lost.",
+      "date": "2026-01-10",
+      "daily": {
+        "log": {
+          "meals": [
+            {
+              "time": "08:30",
+              "items": "breakfast"
+            }
+          ]
+        }
+      },
+      "journal": "### 22:00 | Dashboard\n[meals] 08:30 breakfast; 13:30 salad; 19:00 salmon\n",
+      "expect": {
+        "status": "journal_only",
+        "journal_only": [
+          "meals[2]"
+        ],
+        "structured_only": [],
+        "needs_input": []
+      }
     }
   ]
 }
