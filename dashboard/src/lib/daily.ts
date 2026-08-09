@@ -1,7 +1,7 @@
 // Pure daily-log logic — the TS mirror of optimind-sdk/src/tools/daily.py (do_log_field).
 // Kept free of network/Svelte so it can be unit-tested. Shape = daily_log.schema.json.
 
-export const SCHEMA_VERSION = "1.0";
+export const SCHEMA_VERSION = "1.1";
 export const TZ_NAME = "America/New_York";
 
 // Event categories are arrays (append); everything else is a scalar/object set.
@@ -19,14 +19,38 @@ export interface DailyLog {
   date: string;
   tz: string;
   protocol?: { generated_at: string; source: string; items: ProtocolItem[] };
-  log?: {
-    sleep?: { bedtime?: string; wake_time?: string; quality?: number };
-    meals?: Array<{ time: string; items: string }>;
-    snacks?: Array<{ time: string; items: string }>;
-    caffeine?: Array<{ time: string; amount_mg: number; source?: string }>;
-    routine?: Record<string, { done: boolean; time?: string; duration_min?: number }>;
-    workouts?: Array<{ time: string; duration_min?: number; type?: string }>;
-  };
+  log?: DailyLogBody;
+}
+
+/** Outcome of a routine item. `skipped` is an observation the user made;
+ *  `not_reported` is an absence of evidence. Counting them alike reports
+ *  failures that never happened — see daily_log.schema.json 1.1. */
+export type RoutineStatusValue = "done" | "skipped" | "not_reported";
+
+export interface RoutineRecord {
+  done?: boolean;          // legacy; `status` wins when both are present
+  status?: RoutineStatusValue;
+  time?: string;
+  duration_min?: number;
+  count?: number;
+  note?: string;
+}
+
+export interface MetricRecord {
+  value: number;
+  scale?: number;
+  time?: string;
+  note?: string;
+}
+
+export interface DailyLogBody {
+  sleep?: { bedtime?: string; wake_time?: string; quality?: number; note?: string };
+  meals?: Array<{ time: string; items: string; note?: string }>;
+  snacks?: Array<{ time: string; items: string; note?: string }>;
+  caffeine?: Array<{ time: string; amount_mg: number; source?: string; note?: string }>;
+  routine?: Record<string, RoutineRecord>;
+  metrics?: Record<string, MetricRecord>;
+  workouts?: Array<{ time: string; duration_min?: number; type?: string; source?: string; note?: string }>;
 }
 
 /** Today's date in America/New_York (matches the journal filename). */
@@ -53,6 +77,14 @@ export function nowOffsetISO(now: Date = new Date()): string {
   );
   const offset = (parts.timeZoneName as string).replace("GMT", "") || "+00:00"; // e.g. "-04:00"
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
+}
+
+/** `status` is authoritative; `done` is the 1.0 spelling kept for old records. */
+export function routineStatus(r: RoutineRecord | undefined): RoutineStatusValue | undefined {
+  if (!r) return undefined;
+  if (r.status) return r.status;
+  if (typeof r.done === "boolean") return r.done ? "done" : "skipped";
+  return undefined;
 }
 
 export function newDoc(date: string): DailyLog {
