@@ -9,8 +9,8 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.0",
-      "description": "Schema version. Bump via a migrations/daily_log_<from>to<to>.py script."
+      "enum": ["1.0", "1.1"],
+      "description": "Schema version. Bump via a migrations/daily_log_<from>to<to>.py script. 1.1 adds the optional `note` provenance field to log/protocol entries and the `status` enum to routine items; it is a pure relaxation, so every valid 1.0 document is a valid 1.1 document."
     },
     "date": {
       "$ref": "#/$defs/DateString",
@@ -92,8 +92,13 @@
     },
     "TimeWindow": {
       "type": "string",
-      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d-([01]\\d|2[0-3]):[0-5]\\d$",
-      "description": "HH:MM-HH:MM local window."
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d(-([01]\\d|2[0-3]):[0-5]\\d)?$",
+      "description": "HH:MM-HH:MM local window, or a bare HH:MM for point-in-time items (a supplement dose, lights-out) that have an instant rather than a span. Both forms appear in the historical record."
+    },
+    "Note": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Free-text provenance for this entry — how the value was arrived at, not what it is. Written whenever a number is inferred rather than stated (\"time estimated\", \"latte caffeine estimated\"), or a completion carries a qualifier (\"SKIPPED (user-stated)\", \"only L-Threonate taken\"). Load-bearing: the Dashboard badges an estimated value differently from an observed one, and an entry that silently drops its note is indistinguishable from a measurement."
     },
     "OffsetDateTime": {
       "type": "string",
@@ -114,7 +119,13 @@
         "id": { "$ref": "#/$defs/ItemId" },
         "expected_window": { "$ref": "#/$defs/TimeWindow" },
         "duration_min": { "type": "integer", "minimum": 0 },
-        "type": { "type": "string", "minLength": 1 }
+        "type": { "type": "string", "minLength": 1 },
+        "note": { "$ref": "#/$defs/Note" },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Free-text planning annotation on the item as generated ('done', 'unlogged', 'unlogged — analytical peak window has passed'). Descriptive only; it is NOT the completion record. Actual completion lives in log.routine.<id> and is the only thing compliance counts read."
+        }
       }
     },
     "Sleep": {
@@ -128,7 +139,8 @@
           "minimum": 1,
           "maximum": 5,
           "description": "Subjective sleep quality 1-5 (matches the /5 convention used for graded metrics like back_pain). Mirrored as [sleep.quality] <n>."
-        }
+        },
+        "note": { "$ref": "#/$defs/Note" }
       }
     },
     "FoodEntry": {
@@ -137,7 +149,8 @@
       "required": ["time", "items"],
       "properties": {
         "time": { "$ref": "#/$defs/LocalTime" },
-        "items": { "type": "string", "minLength": 1 }
+        "items": { "type": "string", "minLength": 1 },
+        "note": { "$ref": "#/$defs/Note" }
       }
     },
     "CaffeineEntry": {
@@ -147,17 +160,36 @@
       "properties": {
         "time": { "$ref": "#/$defs/LocalTime" },
         "amount_mg": { "type": "number", "minimum": 0 },
-        "source": { "type": "string", "minLength": 1 }
+        "source": { "type": "string", "minLength": 1 },
+        "note": { "$ref": "#/$defs/Note" }
       }
     },
     "RoutineItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["done"],
+      "description": "One routine item's outcome for the day. Absence of a key means NOT RECORDED — never infer a miss from silence; that inference is what the dual-write audit exists to prevent.",
+      "anyOf": [
+        { "required": ["done"] },
+        { "required": ["status"] }
+      ],
       "properties": {
-        "done": { "type": "boolean" },
+        "done": {
+          "type": "boolean",
+          "description": "Legacy completion flag, retained so every 1.0 document stays valid. Equivalent to status: true -> 'done', false -> 'skipped' (the historical writer only ever emitted false alongside a 'SKIPPED (user-stated)' note). Prefer `status` on new writes; when both are present `status` wins."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["done", "skipped", "not_reported"],
+          "description": "Authoritative outcome. `done` = it happened. `skipped` = the user explicitly said they did not do it — a real, informative observation. `not_reported` = the user was asked or the item was due but no answer was given — an absence of evidence, NOT a behavior miss. Collapsing `skipped` and `not_reported` into one boolean is the defect this field exists to fix: a compliance count that treats them alike reports failures the user never had."
+        },
         "time": { "$ref": "#/$defs/LocalTime" },
-        "duration_min": { "type": "integer", "minimum": 0 }
+        "duration_min": { "type": "integer", "minimum": 0 },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many discrete units the item covered when the user gave a number but not a breakdown (e.g. supplements_breakfast count 4, 'individual items not expanded'). Keeps the quantity queryable without inventing per-item records that were never stated."
+        },
+        "note": { "$ref": "#/$defs/Note" }
       }
     },
     "MetricEntry": {
@@ -178,7 +210,9 @@
       "properties": {
         "time": { "$ref": "#/$defs/LocalTime" },
         "duration_min": { "type": "integer", "minimum": 0 },
-        "type": { "type": "string", "minLength": 1 }
+        "type": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1, "description": "The user's own wording for the activity, kept verbatim so the greppable description survives even when `type` is normalized to a canonical keyword." },
+        "note": { "$ref": "#/$defs/Note" }
       }
     }
   }
