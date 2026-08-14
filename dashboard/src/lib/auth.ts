@@ -31,6 +31,50 @@ export function getToken(): string | null {
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
+
+/**
+ * Store a GitHub token directly.
+ *
+ * The OAuth flow needs a registered OAuth App and a server-side secret for the
+ * code exchange, which is the right shape for a deployed phone-facing app and
+ * overkill for a local one. A fine-grained PAT scoped to the single journal
+ * repo gets you running immediately with a narrower grant than OAuth's `repo`
+ * scope, which covers every repository you can read.
+ *
+ * The token lives in this browser's localStorage and is sent only to
+ * api.github.com. Revoke it at github.com/settings/tokens.
+ */
+export function setToken(token: string): void {
+  const t = token.trim();
+  if (!t) throw new Error("Empty token");
+  localStorage.setItem(TOKEN_KEY, t);
+}
+
+/** Confirm the token actually reaches the configured repo before we rely on it. */
+export async function verifyToken(token: string): Promise<{ ok: boolean; detail: string }> {
+  const res = await fetch(
+    `https://api.github.com/repos/${PUBLIC_REPO_OWNER}/${PUBLIC_REPO}`,
+    { headers: { Authorization: `Bearer ${token.trim()}`, Accept: "application/vnd.github+json" } },
+  );
+  if (res.ok) {
+    const repo = await res.json();
+    // Only reject when GitHub explicitly reports no write access. Some token
+    // types omit `permissions` entirely, and blocking a working token at the
+    // door is worse than letting the first write fail with a clear message.
+    if (repo.permissions && repo.permissions.push === false) {
+      return { ok: false, detail: "Token can read the repo but not write it. Grant Contents: Read and write." };
+    }
+    return { ok: true, detail: `Connected to ${repo.full_name}` };
+  }
+  if (res.status === 401) return { ok: false, detail: "Token rejected (401). Check it was copied whole." };
+  if (res.status === 404) {
+    return {
+      ok: false,
+      detail: `Cannot see ${PUBLIC_REPO_OWNER}/${PUBLIC_REPO}. For a fine-grained token, confirm this repo is selected.`,
+    };
+  }
+  return { ok: false, detail: `GitHub returned ${res.status}` };
+}
 export function isAuthed(): boolean {
   return !!getToken();
 }

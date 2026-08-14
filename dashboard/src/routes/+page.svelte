@@ -5,13 +5,14 @@
   // Integrity sits below it: important, but it is about yesterday, and the
   // screen you open at 05:40 should be about right now.
   import { onMount } from "svelte";
-  import { isAuthed, login, repoRef, clearToken } from "$lib/auth";
+  import { isAuthed, repoRef, clearToken } from "$lib/auth";
   import { logFields, type FieldWrite } from "$lib/writeDaily";
   import { todayNYC, nowHHMM } from "$lib/daily";
   import { buildSummary, recentDates, loadSummaries, refreshDay, clearCache } from "$lib/history";
   import { rollupIntegrity } from "$lib/analytics";
   import StatusBadge from "$lib/components/StatusBadge.svelte";
   import CaptureDrawer from "$lib/components/CaptureDrawer.svelte";
+  import SignIn from "$lib/components/SignIn.svelte";
   import type { CaptureSpec } from "$lib/capture";
   import type { DaySummary, RoutineState } from "$lib/types";
 
@@ -160,11 +161,7 @@
 {#if loading}
   <div class="card"><p class="muted">Loading…</p></div>
 {:else if !authed}
-  <div class="card stack">
-    <h1>OptiMind</h1>
-    <p class="dim">Connect GitHub to read and write your private journal.</p>
-    <button class="primary" onclick={() => login()}>Connect GitHub</button>
-  </div>
+  <SignIn onconnected={async () => { authed = true; loading = true; await load(); loading = false; }} />
 {:else}
   <header class="row-between" style="margin-bottom:var(--s-2);">
     <div>

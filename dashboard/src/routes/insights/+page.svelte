@@ -3,7 +3,8 @@
   // Language stays observational: `observed`, `coverage`, `open loop`. A
   // priority is not a causal claim, and a chart is not an explanation.
   import { onMount } from "svelte";
-  import { isAuthed, login, repoRef } from "$lib/auth";
+  import { isAuthed, repoRef } from "$lib/auth";
+  import SignIn from "$lib/components/SignIn.svelte";
   import { todayNYC, nowHHMM } from "$lib/daily";
   import { buildSummary, loadRange, recentDates } from "$lib/history";
   import { buildTrends } from "$lib/analytics";
@@ -63,10 +64,7 @@
 <svelte:head><title>Insights — OptiMind</title></svelte:head>
 
 {#if !authed && !loading}
-  <div class="card stack">
-    <h1>Insights</h1>
-    <button class="primary" onclick={() => login()}>Connect GitHub</button>
-  </div>
+  <SignIn onconnected={async () => { authed = true; await load(); }} />
 {:else}
   <header style="margin-bottom:var(--s-2);">
     <h1>Insights</h1>
