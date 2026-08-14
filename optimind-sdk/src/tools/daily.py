@@ -138,10 +138,19 @@ def _set_path(obj: dict, parts: list, value: Any) -> None:
 
 
 def render_value(value: Any) -> str:
-    """Human, greppable rendering for the journal mirror line."""
+    """
+    Human, greppable rendering for the journal mirror line.
+
+    A graded reading renders as `2/5`. Joining a dict's values blindly produced
+    `2 5`, which breaks the convention every historical line uses and the
+    keyword greps the analyst agent runs over the journal.
+    """
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, dict):
+        if isinstance(value.get("value"), (int, float)) and isinstance(value.get("scale"), (int, float)):
+            rest = [render_value(v) for k, v in value.items() if k not in ("value", "scale")]
+            return " ".join([f"{value['value']}/{value['scale']}", *rest])
         return " ".join(render_value(v) for v in value.values())
     if isinstance(value, list):
         return " ".join(render_value(v) for v in value)

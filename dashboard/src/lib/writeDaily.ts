@@ -13,7 +13,7 @@
 
 import {
   type DailyLog, type ProtocolItem,
-  applyField, mirrorLine, newDoc, nowHHMM, nowOffsetISO, renderValue, todayNYC, SCHEMA_VERSION, TZ_NAME,
+  applyField, mirrorBlock, newDoc, nowHHMM, nowOffsetISO, renderValue, todayNYC, SCHEMA_VERSION, TZ_NAME,
 } from "./daily";
 import { commitPair, getFile, putFile, type CommitResult, type RepoRef } from "./github";
 
@@ -55,12 +55,15 @@ export async function logFields(
   const { doc } = await loadDaily(ref, d);
   const journal = await getFile(ref, journalPath(d));
 
-  let mirrors = "";
+  const mirrorLines: Array<{ field: string; rendered: string }> = [];
   for (const w of writes) {
     const t = w.time ?? nowHHMM();
     const written = applyField(doc, w.field, w.value, t);
-    mirrors += mirrorLine(t, w.field, renderValue(written));
+    mirrorLines.push({ field: w.field, rendered: renderValue(written) });
   }
+  // One block per submission, stamped with the logging time. Event times live
+  // inside the values, matching the journal's existing convention.
+  const mirrors = mirrorBlock(nowHHMM(), mirrorLines, d < todayNYC());
 
   const dailyText = JSON.stringify(doc, null, 2) + "\n";
   const journalText = (journal.text ?? "") + mirrors;

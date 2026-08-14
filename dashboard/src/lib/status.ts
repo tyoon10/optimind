@@ -19,7 +19,9 @@ const LIST_ALIASES: Record<string, string> = { meal: "meals", snack: "snacks", w
 
 // Dashboard fields that are planning context, not captured events. Counting
 // these would report a permanent divergence on every day that has a protocol.
-const NON_LOG_PREFIXES = new Set(["protocol", "tomorrow", "state", "profile", "note", "deep_work"]);
+const NON_LOG_PREFIXES = new Set([
+  "protocol", "tomorrow", "state", "profile", "note", "deep_work", "event",
+]);
 
 const ENTRY_RE = /^###\s+(\d{2}:\d{2})\s*\|\s*(.+?)\s*$/;
 const FACT_RE = /^\[([A-Za-z_][A-Za-z0-9_.]*)\]\s*(.*)$/;

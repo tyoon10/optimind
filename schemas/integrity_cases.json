@@ -380,6 +380,25 @@
         "structured_only": [],
         "needs_input": []
       }
+    },
+    {
+      "name": "narrative [event] lines are context, not captured metrics",
+      "why": "The writer records real-world events -- an interview, a post going out -- through the same block. They have no place in the structured log, so counting them reports a divergence nothing can ever fix.",
+      "date": "2026-01-10",
+      "daily": {
+        "log": {
+          "sleep": {
+            "quality": 3
+          }
+        }
+      },
+      "journal": "### 22:00 | Dashboard\n[sleep.quality] 3/5\n[event] interviews 14:25-17:00 completed\n[tomorrow.priority] follow up with the recruiter\n",
+      "expect": {
+        "status": "matched",
+        "journal_only": [],
+        "structured_only": [],
+        "needs_input": []
+      }
     }
   ]
 }

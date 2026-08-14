@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  applyField, renderValue, mirrorLine, newDoc, todayNYC, nowOffsetISO, type DailyLog,
-} from "./daily";
+  applyField, renderValue, mirrorLine, newDoc, todayNYC, nowOffsetISO, type DailyLog, mirrorBlock } from "./daily";
 
 describe("applyField (mirrors do_log_field)", () => {
   it("appends caffeine as an event with time injected", () => {
@@ -59,5 +58,37 @@ describe("NYC time helpers", () => {
     const ts = nowOffsetISO(new Date("2026-05-28T12:00:00Z"));
     expect(ts.endsWith("Z")).toBe(false);
     expect(ts).toMatch(/[+-]\d{2}:\d{2}$/);
+  });
+});
+
+// --- mirror rendering (fixes found by the first real 8/11 repair) -------------
+
+describe("mirror rendering", () => {
+  it("renders a graded reading as 2/5, not '2 5'", () => {
+    // The first production repair wrote `[metrics.back_pain] 2 5`, breaking the
+    // convention every historical line uses and the analyst agent's greps.
+    expect(renderValue({ value: 2, scale: 5 })).toBe("2/5");
+    expect(renderValue({ value: 1, scale: 5, note: "estimated" })).toBe("1/5 estimated");
+  });
+
+  it("leaves non-graded objects joined as before", () => {
+    expect(renderValue({ status: "done", time: "19:00" })).toBe("done 19:00");
+    expect(renderValue({ time: "08:14", amount_mg: 65, source: "espresso" })).toBe("08:14 65 espresso");
+  });
+
+  it("puts a whole submission in ONE Dashboard block", () => {
+    // Nine fields previously produced nine `### HH:MM | Dashboard` headers.
+    const block = mirrorBlock("16:42", [
+      { field: "sleep.bedtime", rendered: "23:30" },
+      { field: "sleep.quality", rendered: "1" },
+      { field: "metrics.back_pain", rendered: "2/5" },
+    ]);
+    expect(block.match(/### 16:42 \| Dashboard/g)).toHaveLength(1);
+    expect(block).toContain("[sleep.bedtime] 23:30\n[sleep.quality] 1\n[metrics.back_pain] 2/5");
+  });
+
+  it("labels a past-dated write as a backfill", () => {
+    const block = mirrorBlock("16:42", [{ field: "sleep.quality", rendered: "1" }], true);
+    expect(block).toContain("| Dashboard (backfill)");
   });
 });

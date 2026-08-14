@@ -249,3 +249,20 @@ def test_hardened_writes_remain_schema_valid(journal, validator):
                        time="08:14", date=DATE)
     doc = _read_json(journal / "daily" / f"{DATE}.json")
     assert list(validator.iter_errors(doc)) == []
+
+
+def test_graded_reading_renders_as_a_fraction(journal):
+    """
+    `[metrics.back_pain] 2 5` shipped to the real journal once. It breaks the
+    convention every historical line uses and the analyst agent's greps.
+    """
+    assert daily.render_value({"value": 2, "scale": 5}) == "2/5"
+    assert daily.render_value({"value": 1, "scale": 5, "note": "estimated"}) == "1/5 estimated"
+    # non-graded objects keep the previous join
+    assert daily.render_value({"status": "done", "time": "19:00"}) == "done 19:00"
+
+
+def test_metric_write_mirrors_the_fraction(journal):
+    daily.do_log_field("metrics.back_pain", {"value": 2, "scale": 5}, time="20:33", date=DATE)
+    mirror = (journal / "journal" / f"{DATE}.md").read_text(encoding="utf-8")
+    assert "[metrics.back_pain] 2/5" in mirror

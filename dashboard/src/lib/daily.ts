@@ -129,11 +129,41 @@ export function applyField(doc: DailyLog, field: string, value: any, time: strin
 export function renderValue(value: any): string {
   if (typeof value === "boolean") return value ? "true" : "false";
   if (Array.isArray(value)) return value.map(renderValue).join(" ");
-  if (value && typeof value === "object") return Object.values(value).map(renderValue).join(" ");
+  if (value && typeof value === "object") {
+    const o = value as Record<string, any>;
+    // A graded reading renders as `2/5`. Joining the object's values blindly
+    // produced `2 5`, which breaks the convention every historical line uses
+    // and the keyword greps the analyst agent runs over the journal.
+    if (typeof o.value === "number" && typeof o.scale === "number") {
+      const rest = Object.entries(o)
+        .filter(([k]) => k !== "value" && k !== "scale")
+        .map(([, v]) => renderValue(v));
+      return [`${o.value}/${o.scale}`, ...rest].join(" ");
+    }
+    return Object.values(o).map(renderValue).join(" ");
+  }
   return String(value);
 }
 
 /** The Dashboard mirror line appended to journal/<date>.md (mirrors append_dashboard_line). */
 export function mirrorLine(time: string, field: string, rendered: string): string {
   return `\n### ${time} | Dashboard\n[${field}] ${rendered}\n`;
+}
+
+/**
+ * One Dashboard block holding every field from a single submission.
+ *
+ * Emitting a full `### HH:MM | Dashboard` header per field turned a 9-field
+ * repair into 9 headers, which is unreadable and unlike every entry the journal
+ * already contains. A batch is one event and reads as one block.
+ *
+ * Past dates are labelled `Dashboard (backfill)` so the audit log stays honest
+ * about the difference between capture and later reconstruction.
+ */
+export function mirrorBlock(
+  time: string, lines: Array<{ field: string; rendered: string }>, isBackfill = false,
+): string {
+  const role = isBackfill ? "Dashboard (backfill)" : "Dashboard";
+  const body = lines.map((l) => `[${l.field}] ${l.rendered}`).join("\n");
+  return `\n### ${time} | ${role}\n${body}\n`;
 }

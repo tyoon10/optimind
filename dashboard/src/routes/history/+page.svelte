@@ -121,6 +121,13 @@
     draft = { ...draft, fields: draft.fields.filter((_, j) => j !== i) };
   }
 
+  /**
+   * Fields that will actually be written. A field whose journal line lacks a
+   * required value is skipped by draftToWrites, so counting every row promised
+   * "10 fields" and committed 9.
+   */
+  const writable = $derived(draft ? draft.fields.filter((f) => !f.error).length : 0);
+
   /** Dashboard lines from the selected day, as evidence in the detail drawer. */
   const evidence = $derived(
     selectedRecord?.facts.map((f) => `[${f.field}] ${f.raw}`).join("\n") ?? "",
@@ -320,10 +327,17 @@
       {/each}
     </div>
 
-    <button class="primary" style="width:100%;margin-top:var(--s-2);" disabled={busy || !draft.fields.length}
+    <button class="primary" style="width:100%;margin-top:var(--s-2);" disabled={busy || !writable}
             onclick={saveDraft}>
-      {busy ? "Writing…" : `Save ${draft.fields.length} field${draft.fields.length === 1 ? "" : "s"} in one commit`}
+      {busy ? "Writing…" : `Save ${writable} field${writable === 1 ? "" : "s"} in one commit`}
     </button>
+    {#if draft.fields.length > writable}
+      <p class="tiny" style="color:var(--warn);margin-top:6px;">
+        {draft.fields.length - writable} field{draft.fields.length - writable === 1 ? "" : "s"} cannot be
+        written — the journal never states the required value. Mark them Skipped or Not reported, or leave
+        them for a later confirmation.
+      </p>
+    {/if}
     <p class="tiny muted" style="margin-top:var(--s-1);">
       Journal prose is never modified. A new labelled mirror is appended and the structured record updated,
       both in the same commit, and re-read before this reports success.
