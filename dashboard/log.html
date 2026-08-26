@@ -1,0 +1,474 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OptiMind Log</title>
+<link id="fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style id="css">
+:root{
+  --paper:#F2EFE9; --card:#FFFFFF; --card2:#F8F6F2;
+  --ink:#1B1815; --ink2:#4A443C; --ink3:#7A7266; --ink4:#A39A8C;
+  --line:#DDD6CA; --line2:#C8BFAF;
+  --clay:#A8442A; --claysoft:#F6E3DC;
+  --good:#3D6B3A; --goodsoft:#E2EEDF;
+  --warn:#96690C; --warnsoft:#F7EBD4;
+  --stop:#9C2F26; --stopsoft:#F8E1DE;
+  --sh:0 1px 2px rgba(27,24,21,.05),0 6px 20px rgba(27,24,21,.06);
+  --disp:"Bricolage Grotesque",Georgia,serif;
+  --ui:"Public Sans",-apple-system,"Segoe UI",Helvetica,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#14120F; --card:#1E1B17; --card2:#252119;
+  --ink:#EFEAE1; --ink2:#C3BBAE; --ink3:#938A7C; --ink4:#6E6659;
+  --line:#332E27; --line2:#453E34;
+  --clay:#E0805F; --claysoft:#3A211A;
+  --good:#7FB878; --goodsoft:#1B2B1A;
+  --warn:#D9A441; --warnsoft:#332714;
+  --stop:#E08076; --stopsoft:#37201D;
+  --sh:0 1px 2px rgba(0,0,0,.35),0 8px 26px rgba(0,0,0,.4);
+}}
+:root[data-theme="dark"]{
+  --paper:#14120F; --card:#1E1B17; --card2:#252119;
+  --ink:#EFEAE1; --ink2:#C3BBAE; --ink3:#938A7C; --ink4:#6E6659;
+  --line:#332E27; --line2:#453E34;
+  --clay:#E0805F; --claysoft:#3A211A;
+  --good:#7FB878; --goodsoft:#1B2B1A;
+  --warn:#D9A441; --warnsoft:#332714;
+  --stop:#E08076; --stopsoft:#37201D;
+  --sh:0 1px 2px rgba(0,0,0,.35),0 8px 26px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font:400 15px/1.5 var(--ui);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:0 16px 90px}
+header{padding:34px 0 20px;border-bottom:2px solid var(--ink)}
+.eyebrow{font:500 10px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--clay)}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(30px,6vw,44px);line-height:1;letter-spacing:-.02em;margin:8px 0 0}
+.sub{color:var(--ink2);font-size:14.5px;margin-top:9px;max-width:58ch}
+h2{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.01em;margin:0}
+.sec{margin-top:30px}
+.sechd{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.sechd .n{font:500 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink4)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);padding:18px 20px}
+.datebar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.datebar input[type=date]{font:500 13px var(--mono);background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:7px 10px;color:var(--ink)}
+.datebar .stat{font:500 11px var(--mono);color:var(--ink3);margin-left:auto}
+.row{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start;padding:13px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+@media (max-width:620px){.row{grid-template-columns:1fr;gap:7px}}
+.lab{font:600 11px/1.35 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);padding-top:7px}
+.lab small{display:block;font:400 10px/1.3 var(--ui);letter-spacing:0;text-transform:none;color:var(--ink4);margin-top:2px}
+.seg{display:flex;gap:5px;flex-wrap:wrap}
+.seg button{font:600 14px var(--mono);min-width:42px;height:38px;border:1px solid var(--line2);background:var(--card2);color:var(--ink2);border-radius:8px;cursor:pointer}
+.seg button:hover{border-color:var(--clay);color:var(--clay)}
+.seg button[aria-pressed="true"]{background:var(--clay);border-color:var(--clay);color:#fff}
+:root[data-theme="dark"] .seg button[aria-pressed="true"]{color:#14120F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .seg button[aria-pressed="true"]{color:#14120F}}
+.seg button:focus-visible{outline:2px solid var(--clay);outline-offset:2px}
+.toggles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:7px}
+.tg{display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--line2);border-radius:9px;padding:8px 10px;cursor:pointer;font-size:13.5px;color:var(--ink2)}
+.tg:hover{border-color:var(--clay)}
+.tg[data-on="1"]{background:var(--goodsoft);border-color:var(--good);color:var(--good);font-weight:600}
+.tg .box{width:15px;height:15px;border:1.5px solid currentColor;border-radius:4px;flex:none;position:relative}
+.tg[data-on="1"] .box::after{content:"";position:absolute;left:3.5px;top:.5px;width:4px;height:8px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.tg input[type=time]{margin-left:auto;width:auto;min-width:104px;flex:none;font:500 11.5px var(--mono);background:transparent;border:0;border-bottom:1px solid var(--line2);color:inherit;padding:1px 0}
+.tg>span:nth-of-type(2){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+input[type=time],input[type=number],input[type=text]{font:400 13.5px var(--ui);background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--ink)}
+input[type=time],input[type=number]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+input:focus{outline:2px solid var(--clay);outline-offset:1px}
+textarea{width:100%;min-height:52px;font:400 13.5px/1.45 var(--ui);background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:9px 11px;color:var(--ink);resize:vertical}
+textarea:focus{outline:2px solid var(--clay);outline-offset:1px}
+.inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink3)}
+.inline input[type=number]{width:82px}
+.flag{margin-top:8px;font:500 12px/1.45 var(--ui);padding:8px 11px;border-radius:8px;display:none}
+.flag.on{display:block}
+.flag.warn{background:var(--warnsoft);color:var(--warn)}
+.flag.stop{background:var(--stopsoft);color:var(--stop)}
+.flag.good{background:var(--goodsoft);color:var(--good)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--sh)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:13px}
+th{font:600 9.5px/1.3 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);background:var(--card2);padding:9px 10px;text-align:left;border-bottom:1.5px solid var(--line2);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--card2);cursor:pointer}
+td.d{font:600 12px var(--mono);color:var(--ink)}
+td.mid{text-align:center}
+.pill{display:inline-block;min-width:22px;font:600 11px var(--mono);padding:3px 6px;border-radius:5px;text-align:center}
+.p1,.p2{background:var(--goodsoft);color:var(--good)}
+.p3{background:var(--warnsoft);color:var(--warn)}
+.p4,.p5{background:var(--stopsoft);color:var(--stop)}
+.dot{color:var(--good);font-weight:700}
+.dotx{color:var(--ink4)}
+.no{color:var(--stop);font-weight:700}
+.empty{padding:26px;text-align:center;color:var(--ink4);font-size:13.5px}
+.bar{position:sticky;bottom:14px;display:flex;gap:9px;justify-content:flex-end;align-items:center;margin-top:18px;flex-wrap:wrap}
+.bar .note{font:400 11px var(--mono);color:var(--ink3);background:var(--card);padding:7px 11px;border-radius:999px;border:1px solid var(--line);margin-right:auto}
+.bar .note.dirty{border-color:var(--warn);color:var(--warn)}
+.bar .note.ok{border-color:var(--good);color:var(--good)}
+button.act{background:var(--ink);color:var(--paper);border:0;border-radius:999px;padding:11px 20px;font:600 13px var(--ui);cursor:pointer;box-shadow:var(--sh)}
+button.act:hover{background:var(--clay)}
+button.act.ghost{background:transparent;color:var(--ink2);border:1px solid var(--line2);box-shadow:none}
+button.act.ghost:hover{background:var(--card2);color:var(--clay);border-color:var(--clay)}
+button.act[disabled]{opacity:.5;cursor:default}
+button.act:focus-visible{outline:2px solid var(--clay);outline-offset:2px}
+.out{width:100%;min-height:170px;margin-top:12px;border:1px solid var(--line2);border-radius:10px;padding:12px;font:400 12px/1.5 var(--mono);background:var(--card);color:var(--ink);display:none}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:400 11.5px/1.7 var(--mono);color:var(--ink4)}
+</style>
+<div id="root"></div>
+
+<script id="tpl" type="text/html">
+<div class="wrap" lang="en-GB">
+<header>
+  <span class="eyebrow">OptiMind · daily capture</span>
+  <h1>OptiMind Log</h1>
+  <p class="sub">Tap, do not type. Back pain gates tomorrow's training, so it is the one field that changes what the protocol schedules. Everything else is intake and sleep, which nothing else can observe.</p>
+</header>
+<section class="sec">
+  <div class="sechd"><span class="n">Entry</span><h2 id="dayTitle">Today</h2></div>
+  <div class="card">
+    <div class="datebar">
+      <label for="d" style="font:600 11px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)">Date</label>
+      <input type="date" id="d"><span class="stat" id="dayStat"></span>
+    </div>
+    <div class="row"><div class="lab">Back<small>1 none · 5 severe</small></div>
+      <div><div class="seg" id="back" role="group" aria-label="Back pain 1 to 5"></div><div class="flag" id="backFlag"></div></div></div>
+    <div class="row"><div class="lab">Sleep<small>bed, wake, quality</small></div>
+      <div><div class="inline"><input type="time" lang="en-GB" id="bed" aria-label="Bedtime"> to <input type="time" lang="en-GB" id="wake" aria-label="Wake time">
+        <span id="dur" style="font:500 12px var(--mono);color:var(--ink3)"></span></div>
+        <div class="seg" id="sq" style="margin-top:8px" role="group" aria-label="Sleep quality 1 to 5"></div>
+        <div class="flag" id="bedFlag"></div></div></div>
+    <div class="row"><div class="lab">Routine<small>tap done, time optional</small></div>
+      <div><div class="toggles" id="routine"></div><div class="flag" id="mgFlag"></div></div></div>
+    <div class="row"><div class="lab">Caffeine<small>cutoff 14:00 · never without L-theanine</small></div>
+      <div><div class="inline"><input type="time" lang="en-GB" id="cafT" aria-label="Caffeine time">
+        <input type="number" id="cafMg" placeholder="mg" min="0" max="900" step="5" aria-label="Caffeine mg">
+        <input type="text" id="cafSrc" placeholder="source (optional)" style="flex:1;min-width:150px" aria-label="Caffeine source"></div>
+        <div class="toggles" style="margin-top:8px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">
+          <div class="tg" id="lt" data-on="0" role="button" tabindex="0" aria-pressed="false"><span class="box"></span><span>L-theanine</span></div>
+        </div>
+        <div class="flag" id="cafFlag"></div></div></div>
+    <div class="row"><div class="lab">Workout</div>
+      <div class="inline"><input type="time" lang="en-GB" id="woT" aria-label="Workout time">
+        <input type="number" id="woMin" placeholder="min" min="0" max="300" step="5" aria-label="Workout minutes">
+        <input type="text" id="woType" placeholder="type, e.g. mobility / strength" style="flex:1;min-width:160px" aria-label="Workout type"></div></div>
+    <div class="row"><div class="lab">Meditation<small>5 min FA-breath &middot; before the first coffee</small></div>
+      <div><div class="inline"><input type="time" lang="en-GB" id="medT" aria-label="Meditation time">
+        <input type="number" id="medMin" placeholder="min" min="0" max="180" step="1" aria-label="Meditation minutes"></div>
+        <div class="flag" id="medFlag"></div></div></div>
+    <div class="row"><div class="lab">NSDR<small>10 to 20 min &middot; 14:00 to 14:30 &middot; dip backstop</small></div>
+      <div><div class="inline"><input type="time" lang="en-GB" id="nsdrT" aria-label="NSDR time">
+        <input type="number" id="nsdrMin" placeholder="min" min="0" max="180" step="1" aria-label="NSDR minutes"></div>
+        <div class="flag" id="nsdrFlag"></div></div></div>
+    <div class="row"><div class="lab">Meals<small>one per line</small></div>
+      <div><textarea id="meals" placeholder="time then what, one per line"></textarea></div></div>
+  </div>
+  <div class="bar"><span class="note" id="note">loading</span>
+    <button class="act ghost" id="exportBtn" type="button">Export JSON</button>
+    <button class="act" id="saveBtn" type="button" hidden>Save</button></div>
+  <textarea class="out" id="out" spellcheck="false" aria-label="Exported JSON"></textarea>
+</section>
+<section class="sec">
+  <div class="sechd"><span class="n">History</span><h2>The record</h2>
+    <span style="margin-left:auto;font:400 11px var(--mono);color:var(--ink4)" id="histStat"></span></div>
+  <div class="tw"><table><thead><tr>
+    <th>Date</th><th>Back</th><th>Bed</th><th>Wake</th><th>Dur</th><th>Q</th>
+    <th>Sun</th><th>Walk</th><th>Cold</th><th>AM</th><th>Creat</th><th>Zinc</th><th>Mg</th>
+    <th>Caffeine</th><th>Workout</th><th>Med</th><th>NSDR</th></tr></thead><tbody id="hist"></tbody></table></div>
+  <div class="empty" id="histEmpty">No entries yet. Fill the card above and press Save.</div>
+</section>
+<footer>
+  Writes the OptiMind daily log shape: sleep, metrics.back_pain, routine, caffeine, workouts, meals.
+  Meditation and NSDR are emitted as routine items with duration_min, which is where the schema already keeps timed practices.
+  Saving republishes this page with the record embedded, so entries survive across devices and can be read back without a paste.
+  Rules shown inline come from user_profile.json: caffeine cutoff 14:00, L-theanine co-dosed with every serving, zinc to magnesium separation 2h, bedtime cap 22:30, strength gated at back pain 2 of 5.
+</footer>
+</div>
+</script>
+
+<!-- The seed is the ONLY place a personal record can enter this file, so in
+     this repo it stays empty. The live record lives in the published
+     artifact, which round-trips it, and reaches the private journal repo
+     via Export JSON. Never commit a populated seed here: optimind is a
+     PUBLIC design archive. -->
+<script id="seed" type="application/json">{"v":{},"savedAt":0}</script>
+
+<script id="app">
+(function(){
+  "use strict";
+  var ROUTINE=[["sunlight","Sunlight",0],["morning_walk","Morning walk",0],
+               ["cold_shower","Cold shower",0],
+               ["supplements_breakfast","AM supplements",0],["creatine","Creatine",1],
+               ["zinc","Zinc",1],["mg_stack","Magnesium",1]];
+  var KEY="optimind-log-v2";
+  var data={}, savedAt=0, touchedAt=0, dirty=false, cap=null, canSave=false;
+  var $=function(i){return document.getElementById(i)};
+
+  document.getElementById("root").innerHTML=document.getElementById("tpl").textContent;
+  var note=$("note"), saveBtn=$("saveBtn"), rEl=$("routine"), lt=$("lt");
+
+  function todayISO(){
+    var t=new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"}));
+    return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
+  }
+  function blank(){return{back:null,bed:"",wake:"",sq:null,routine:{},caf:{t:"",mg:"",src:"",lt:false},wo:{t:"",min:"",type:""},med:{t:"",min:""},nsdr:{t:"",min:""},meals:""}}
+  function mins(s){var p=s.split(":");return +p[0]*60+ +p[1]}
+
+  function seg(el,lo,hi){
+    for(var i=lo;i<=hi;i++){(function(v){
+      var b=document.createElement("button");b.type="button";b.textContent=v;b.setAttribute("aria-pressed","false");
+      b.addEventListener("click",function(){el.dataset.val=(el.dataset.val===String(v))?"":String(v);paint(el);flags();mark()});
+      el.appendChild(b)})(i)}
+  }
+  function paint(el){Array.prototype.forEach.call(el.children,function(b){
+    b.setAttribute("aria-pressed",b.textContent===el.dataset.val?"true":"false")})}
+  seg($("back"),1,5); seg($("sq"),1,5);
+
+  ROUTINE.forEach(function(r){
+    var d=document.createElement("div");d.className="tg";d.dataset.k=r[0];d.dataset.on="0";
+    d.innerHTML='<span class="box"></span><span>'+r[1]+'</span>';
+    if(r[2]){var t=document.createElement("input");t.type="time";t.lang="en-GB";t.setAttribute("aria-label",r[1]+" time");
+      t.addEventListener("click",function(e){e.stopPropagation()});
+      t.addEventListener("input",function(){d.dataset.on="1";flags();mark()});d.appendChild(t)}
+    d.addEventListener("click",function(){d.dataset.on=d.dataset.on==="1"?"0":"1";flags();mark()});
+    rEl.appendChild(d)});
+  function toggleLt(){lt.dataset.on=lt.dataset.on==="1"?"0":"1";lt.setAttribute("aria-pressed",lt.dataset.on==="1"?"true":"false");flags();mark()}
+  lt.addEventListener("click",toggleLt);
+  lt.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();toggleLt()}});
+
+  function setFlag(el,c,m){el.className="flag "+(m?("on "+c):"");el.textContent=m||""}
+  function flags(){
+    var b=$("back").dataset.val;
+    if(b==="") setFlag($("backFlag"),"warn","No reading means tomorrow's workout demotes to mobility automatically.");
+    else if(+b<=2) setFlag($("backFlag"),"good","At or below the 2 of 5 gate. Strength stays scheduled.");
+    else setFlag($("backFlag"),"stop","Above the gate. Tomorrow demotes to mobility.");
+    var t=$("cafT").value,msgs=[],worst="good";
+    if(t){
+      if(t>="14:00"){msgs.push("After the 14:00 cutoff. Remedy is +100mg elemental magnesium tonight.");worst="stop"}
+      else msgs.push("Inside the cutoff.");
+      if(lt.dataset.on!=="1"){msgs.push("No L-theanine. The rule is never caffeine without it.");worst="stop"}
+    }
+    setFlag($("cafFlag"),worst,msgs.join(" "));
+    var z=rEl.querySelector('[data-k="zinc"] input'),m=rEl.querySelector('[data-k="mg_stack"] input');
+    if(z&&m&&z.value&&m.value){var g=mins(m.value)-mins(z.value);if(g<0)g+=1440;
+      var h=Math.floor(g/60)+"h"+String(g%60).padStart(2,"0");
+      setFlag($("mgFlag"),g<120?"stop":"good","Zinc to magnesium "+h+(g<120?", under the 2h separation. Zinc blocks magnesium absorption.":", clears the 2h separation."))}
+    else setFlag($("mgFlag"),"","");
+    var bd=$("bed").value,wk=$("wake").value;
+    if(bd&&wk){var d2=mins(wk)-mins(bd);if(d2<0)d2+=1440;
+      $("dur").textContent=Math.floor(d2/60)+"h "+String(d2%60).padStart(2,"0")+"m"}else $("dur").textContent="";
+    setFlag($("bedFlag"),"warn",(bd&&bd>"22:30"&&bd<"12:00")?"Past the 22:30 cap.":"");
+
+    // Meditation. The protocol orders it BEFORE the first coffee: the FA-breath
+    // is meant to run caffeine-free, then the coffee fuels the block as plasma
+    // ramps. Ordering is the rule; duration is not, because frequency (>=4
+    // days/wk) is the expensive variable, not minutes.
+    var mt=$("medT").value,mm=$("medMin").value,mMsg=[],mW="good";
+    if(mt||mm){
+      if(mt&&t){ if(mt>=t){mMsg.push("After the first coffee. The 5-min breath work is meant to run caffeine-free, before it.");mW="stop"}
+                 else mMsg.push("Before the first coffee, as ordered."); }
+      if(mm&&+mm<5) mMsg.push("Under the 5-min target, but frequency beats duration here.");
+    }
+    setFlag($("medFlag"),mW,mMsg.join(" "));
+
+    // NSDR. A backstop, not the first lever: the walk and the lunch come first.
+    // Window is 14:00-14:30, dose 10-20 min.
+    var nt=$("nsdrT").value,nm=$("nsdrMin").value,nMsg=[],nBad=false;
+    if(nt||nm){
+      if(nt&&(nt<"14:00"||nt>"14:30")){nMsg.push("Outside the 14:00 to 14:30 window.");nBad=true}
+      else if(nt) nMsg.push("Inside the window.");
+      if(nm&&(+nm<10||+nm>20)){nMsg.push("Dose is 10 to 20 min.");nBad=true}
+    }
+    setFlag($("nsdrFlag"),nBad?"warn":"good",nMsg.join(" "));
+  }
+
+  function read(){
+    var e=blank();
+    e.back=$("back").dataset.val===""?null:+$("back").dataset.val;
+    e.sq=$("sq").dataset.val===""?null:+$("sq").dataset.val;
+    e.bed=$("bed").value;e.wake=$("wake").value;
+    rEl.querySelectorAll(".tg").forEach(function(d){var i=d.querySelector("input");
+      if(d.dataset.on==="1")e.routine[d.dataset.k]={done:true,time:i?i.value:""}});
+    e.caf={t:$("cafT").value,mg:$("cafMg").value,src:$("cafSrc").value,lt:lt.dataset.on==="1"};
+    e.wo={t:$("woT").value,min:$("woMin").value,type:$("woType").value};
+    e.med={t:$("medT").value,min:$("medMin").value};
+    e.nsdr={t:$("nsdrT").value,min:$("nsdrMin").value};
+    e.meals=$("meals").value;return e;
+  }
+  function write(e){
+    e=e||blank();
+    $("back").dataset.val=e.back==null?"":String(e.back);paint($("back"));
+    $("sq").dataset.val=e.sq==null?"":String(e.sq);paint($("sq"));
+    $("bed").value=e.bed||"";$("wake").value=e.wake||"";
+    rEl.querySelectorAll(".tg").forEach(function(d){var r=(e.routine||{})[d.dataset.k];
+      d.dataset.on=r?"1":"0";var i=d.querySelector("input");if(i)i.value=(r&&r.time)||""});
+    var c=e.caf||{};$("cafT").value=c.t||"";$("cafMg").value=c.mg||"";$("cafSrc").value=c.src||"";
+    lt.dataset.on=c.lt?"1":"0";lt.setAttribute("aria-pressed",c.lt?"true":"false");
+    var w=e.wo||{};$("woT").value=w.t||"";$("woMin").value=w.min||"";$("woType").value=w.type||"";
+    var md=e.med||{};$("medT").value=md.t||"";$("medMin").value=md.min||"";
+    var nd=e.nsdr||{};$("nsdrT").value=nd.t||"";$("nsdrMin").value=nd.min||"";
+    $("meals").value=e.meals||"";flags();
+  }
+  function filled(e){return !!e&&(e.back!=null||e.bed||e.wake||e.sq!=null||Object.keys(e.routine||{}).length
+    ||(e.caf&&e.caf.t)||(e.wo&&(e.wo.type||e.wo.min))
+    ||(e.med&&(e.med.t||e.med.min))||(e.nsdr&&(e.nsdr.t||e.nsdr.min))||e.meals)}
+  function mark(){dirty=true;touchedAt=Date.now();data[$("d").value]=read();
+    try{localStorage.setItem(KEY,JSON.stringify({v:data,touchedAt:touchedAt}))}catch(e){}
+    hist();status()}
+
+  function hist(){
+    var tb=$("hist"),ds=Object.keys(data).filter(function(k){return filled(data[k])}).sort().reverse();
+    tb.innerHTML="";$("histEmpty").style.display=ds.length?"none":"block";
+    $("histStat").textContent=ds.length?ds.length+" days logged":"";
+    ds.forEach(function(k){
+      var e=data[k],tr=document.createElement("tr"),dur="";
+      if(e.bed&&e.wake){var d2=mins(e.wake)-mins(e.bed);if(d2<0)d2+=1440;dur=Math.floor(d2/60)+"h"+String(d2%60).padStart(2,"0")}
+      function dot(x){return (e.routine||{})[x]?'<span class="dot">&#9679;</span>':'<span class="dotx">&#8722;</span>'}
+      var caf="";if(e.caf&&e.caf.t){caf=e.caf.t+(e.caf.mg?" "+e.caf.mg+"mg":"");
+        caf+=e.caf.lt?' <span class="dot">+LT</span>':' <span class="no">!LT</span>'}
+      var wo=(e.wo&&(e.wo.type||e.wo.min))?((e.wo.type||"")+(e.wo.min?" "+e.wo.min+"m":"")).trim():"";
+      function span(o){ if(!o||(!o.t&&!o.min))return '<span class="dotx">&#8722;</span>';
+        return (o.min?o.min+"m":"")+(o.t?(o.min?" ":"")+o.t:"") }
+      tr.innerHTML='<td class="d">'+k.slice(5)+'</td><td class="mid">'
+        +(e.back==null?'<span class="dotx">&#8722;</span>':'<span class="pill p'+e.back+'">'+e.back+'</span>')
+        +'</td><td>'+(e.bed||"")+'</td><td>'+(e.wake||"")+'</td><td>'+dur+'</td><td class="mid">'+(e.sq==null?"":e.sq)
+        +'</td><td class="mid">'+dot("sunlight")+'</td><td class="mid">'+dot("morning_walk")+'</td><td class="mid">'+dot("cold_shower")+'</td><td class="mid">'+dot("supplements_breakfast")
+        +'</td><td class="mid">'+dot("creatine")+'</td><td class="mid">'+dot("zinc")+'</td><td class="mid">'+dot("mg_stack")
+        +'</td><td>'+caf+'</td><td>'+wo+'</td><td>'+span(e.med)+'</td><td>'+span(e.nsdr)+'</td>';
+      tr.addEventListener("click",function(){$("d").value=k;load()});tb.appendChild(tr)});
+  }
+
+  function toSchema(date){
+    var e=data[date];if(!e)return null;var log={};
+    if(e.bed||e.wake||e.sq!=null){log.sleep={};if(e.bed)log.sleep.bedtime=e.bed;
+      if(e.wake)log.sleep.wake_time=e.wake;if(e.sq!=null)log.sleep.quality=e.sq}
+    if(e.back!=null)log.metrics={back_pain:{value:e.back,scale:5}};
+    if(Object.keys(e.routine||{}).length){log.routine={};Object.keys(e.routine).forEach(function(k){
+      var o={done:true};if(e.routine[k].time)o.time=e.routine[k].time;log.routine[k]=o})}
+    // The journal schema REQUIRES amount_mg and has no with_theanine field:
+    // L-theanine belongs in the free-text source, which is how every entry back
+    // to May records it. Emitting with_theanine made both saved days fail
+    // validation. 65mg is the historical median here (one shot) and CLAUDE.md
+    // says estimate rather than refuse, so a blank mg box is filled and the
+    // source says plainly that it was estimated.
+    if(e.caf&&e.caf.t){
+      var c={time:e.caf.t};
+      c.amount_mg=e.caf.mg?+e.caf.mg:65;
+      var bits=[];
+      if(e.caf.src)bits.push(e.caf.src);
+      if(!e.caf.mg)bits.push("amount not logged; estimated 1 shot");
+      bits.push(e.caf.lt?"+ L-theanine":"NO L-theanine");
+      if(e.caf.t>="14:00")bits.push("AFTER 14:00 cutoff");
+      c.source=bits.join("; ");
+      log.caffeine=[c];
+    }
+    // Meditation and NSDR are routine items, not a new top-level key: log has
+    // additionalProperties:false, and RoutineItem already carries time +
+    // duration_min. `meditation` is a canonical ItemId in the schema's own list.
+    [["meditation",e.med],["nsdr",e.nsdr]].forEach(function(pair){
+      var k=pair[0],o=pair[1];
+      if(!o||(!o.t&&!o.min))return;
+      log.routine=log.routine||{};
+      var n=(o.min!==""&&o.min!=null&&isFinite(+o.min))?Math.round(+o.min):null;
+      // 0 minutes is the user saying it did not happen. The schema is explicit
+      // that `skipped` (stated miss) and `done` are different facts, so a zero
+      // must not ride in as done with duration 0.
+      var r=(n===0)?{status:"skipped"}:{done:true};
+      if(o.t)r.time=o.t;
+      if(n!==null&&n>0)r.duration_min=n;
+      log.routine[k]=r;
+    });
+    if(e.wo&&(e.wo.type||e.wo.min||e.wo.t)){var w={};if(e.wo.t)w.time=e.wo.t;
+      if(e.wo.min)w.duration_min=+e.wo.min;if(e.wo.type)w.type=e.wo.type;log.workouts=[w]}
+    if(e.meals&&e.meals.trim())log.meals=e.meals.split("\n").filter(function(l){return l.trim()}).map(function(l){
+      var m=l.match(/^\s*([0-2]?\d:[0-5]\d)\s+(.*)$/);return m?{time:m[1],items:m[2].trim()}:{items:l.trim()}});
+    return {schema_version:"1.0",date:date,tz:"America/New_York",log:log};
+  }
+
+  // Rebuild the whole document from parts that never mutate. The template, style
+  // and app all live in script/style tags, which user interaction cannot touch,
+  // so this is NOT DOM serialisation: no runtime-injected scripts, no input
+  // values baked in. Only the seed block changes.
+  function render(payload){
+    var esc=function(s){return String(s).replace(/<\/script/gi,"<\\/script")};
+    return "<!doctype html><html><head><meta charset=\"utf-8\">"
+      + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+      + "<title>OptiMind Log</title>"
+      + "<link id=\"fonts\" rel=\"stylesheet\" href=\""+$("fonts").getAttribute("href")+"\">"
+      + "<style id=\"css\">"+$("css").textContent+"</style></head><body>"
+      + "<div id=\"root\"></div>"
+      + "<script id=\"tpl\" type=\"text/html\">"+esc($("tpl").textContent)+"<\/script>"
+      + "<script id=\"seed\" type=\"application/json\">"+esc(JSON.stringify(payload))+"<\/script>"
+      + "<script id=\"app\">"+esc($("app").textContent)+"<\/script>"
+      + "</body></html>";
+  }
+
+  function status(){ if(!canSave)return;
+    if(dirty){note.textContent="unsaved changes";note.className="note dirty"}
+    else if(savedAt){note.textContent="saved "+new Date(savedAt).toLocaleString();note.className="note ok"}
+    else {note.textContent="nothing saved yet";note.className="note"} }
+  function readOnly(m){canSave=false;if(saveBtn)saveBtn.hidden=true;note.textContent=m;note.className="note"}
+
+  function load(){var d=$("d").value;
+    $("dayTitle").textContent=d===todayISO()?"Today":new Date(d+"T12:00:00").toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"});
+    write(data[d]);$("dayStat").textContent=filled(data[d])?"logged":"empty"}
+
+  $("d").addEventListener("change",load);
+  // Delegate, do not enumerate. The previous hardcoded id list had to be
+  // updated by hand for every new field, and when it was not, the field still
+  // rendered and still accepted typing but never reached `data` -- so Save
+  // wrote the stale record and the entry vanished with no error. That is the
+  // worst failure shape available here, so the list is gone.
+  document.querySelector(".card").addEventListener("input",function(ev){
+    var t=ev.target;
+    if(!t||!t.matches||!t.matches("input,textarea"))return;
+    if(t.id==="d")return;         // date: `change` -> load(); mark() here would
+                                  // write the displayed day into the NEW date
+    if(t.closest(".tg"))return;   // routine toggles carry their own handler
+    flags();mark();
+  });
+
+  (function boot(){
+    var seed={};try{seed=JSON.parse($("seed").textContent)||{}}catch(e){}
+    var loc=null;try{loc=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
+    savedAt=seed.savedAt||0;
+    if(loc&&loc.v&&(loc.touchedAt||0)>savedAt){data=loc.v;touchedAt=loc.touchedAt;dirty=true}
+    else {data=seed.v||{};touchedAt=savedAt;dirty=false}
+    $("d").value=todayISO();load();hist();
+    (function(){try{return claude.use("artifact")}catch(e){return Promise.resolve(null)}})()
+      .catch(function(){return null})
+      .then(function(c){cap=c;
+        if(!cap){readOnly("view only here, use Export JSON");return}
+        canSave=true;if(saveBtn)saveBtn.hidden=false;status()});
+  })();
+
+  if(saveBtn) saveBtn.addEventListener("click",function(){
+    if(!canSave||!cap)return;
+    // Read the form before committing. `data` is maintained incrementally by
+    // mark(), so anything that failed to fire it would be on screen and absent
+    // from the payload. Save is the commit point; the DOM wins here.
+    data[$("d").value]=read();
+    saveBtn.disabled=true;note.textContent="saving";note.className="note";
+    var stamp=Date.now();
+    // publish() reloads this view on success, so keep a local copy first.
+    try{localStorage.setItem(KEY,JSON.stringify({v:data,touchedAt:stamp}))}catch(e){}
+    cap.publish(render({v:data,savedAt:stamp})).then(function(){
+      savedAt=stamp;dirty=false;saveBtn.disabled=false;status()
+    }).catch(function(err){
+      saveBtn.disabled=false;var c=(err&&err.code)||"upstream_error";
+      if(c==="conflict"){note.textContent="someone saved first, reloading to theirs";return}
+      if(c==="not_writer"||c==="not_granted"||c==="not_declared"){readOnly("read only view, use Export JSON");return}
+      if(c==="capability_disabled"||c==="capability_removed"){readOnly("saving unavailable here, use Export JSON");return}
+      if(c==="too_large"){note.textContent="too large to save, use Export JSON";note.className="note dirty";return}
+      note.textContent="save failed ("+c+"), your work is still here";note.className="note dirty";
+    });
+  });
+
+  $("exportBtn").addEventListener("click",function(){
+    var d=$("d").value;data[d]=read();          // same reason as Save
+    var o=toSchema(d),box=$("out");
+    box.value=o?JSON.stringify(o,null,2):"Nothing logged for "+d+" yet.";
+    box.style.display="block";box.focus();box.select();
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(box.value).then(function(){
+        note.textContent="copied, paste into daily/"+d+".json";note.className="note ok"}).catch(function(){});
+  });
+})();
+</script>
