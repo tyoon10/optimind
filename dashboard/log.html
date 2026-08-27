@@ -69,10 +69,25 @@ h2{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.01em;
 .tg[data-on="1"]{background:var(--goodsoft);border-color:var(--good);color:var(--good);font-weight:600}
 .tg .box{width:15px;height:15px;border:1.5px solid currentColor;border-radius:4px;flex:none;position:relative}
 .tg[data-on="1"] .box::after{content:"";position:absolute;left:3.5px;top:.5px;width:4px;height:8px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg)}
-.tg input[type=time]{margin-left:auto;width:auto;min-width:104px;flex:none;font:500 11.5px var(--mono);background:transparent;border:0;border-bottom:1px solid var(--line2);color:inherit;padding:1px 0}
+.tg input.tm{margin-left:auto;width:70px;min-width:0;flex:none;font:500 11.5px var(--mono);background:transparent;border:0;border-bottom:1px solid var(--line2);color:inherit;padding:1px 0;text-align:right}
+.tg input.tm.bad{border-bottom-color:var(--stop);color:var(--stop)}
 .tg>span:nth-of-type(2){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-input[type=time],input[type=number],input[type=text]{font:400 13.5px var(--ui);background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--ink)}
-input[type=time],input[type=number]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+input[type=number],input[type=text]{font:400 13.5px var(--ui);background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--ink)}
+input[type=number],input.tm{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* 24-hour typed time. type=time renders AM/PM wherever the browser follows the
+   OS locale rather than lang, which costs keystrokes on a field typed daily. */
+input.tm{width:78px;text-align:center;letter-spacing:.04em}
+input.tm.bad{border-color:var(--stop);color:var(--stop)}
+.cafrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:7px}
+.cafrow input[type=number]{width:82px}
+.cafrow .cafSrc{flex:1;min-width:140px}
+.cafrow .tg{flex:none;padding:7px 10px;font-size:12.5px}
+.cafrow .rm{flex:none;width:30px;height:30px;border:1px solid var(--line2);background:var(--card2);color:var(--ink3);border-radius:8px;font:400 16px/1 var(--ui);cursor:pointer}
+.cafrow .rm:hover{border-color:var(--stop);color:var(--stop)}
+.cafrow .rm[hidden]{display:none}
+.addbtn{margin-top:2px;background:transparent;border:1px dashed var(--line2);color:var(--ink3);border-radius:8px;padding:7px 12px;font:600 12px var(--ui);cursor:pointer}
+.addbtn:hover{border-color:var(--clay);color:var(--clay);border-style:solid}
+.addbtn:focus-visible,.cafrow .rm:focus-visible{outline:2px solid var(--clay);outline-offset:2px}
 input:focus{outline:2px solid var(--clay);outline-offset:1px}
 textarea{width:100%;min-height:52px;font:400 13.5px/1.45 var(--ui);background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:9px 11px;color:var(--ink);resize:vertical}
 textarea:focus{outline:2px solid var(--clay);outline-offset:1px}
@@ -128,35 +143,31 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
       <label for="d" style="font:600 11px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)">Date</label>
       <input type="date" id="d"><span class="stat" id="dayStat"></span>
     </div>
-    <div class="row"><div class="lab">Back<small>1 none · 5 severe</small></div>
-      <div><div class="seg" id="back" role="group" aria-label="Back pain 1 to 5"></div><div class="flag" id="backFlag"></div></div></div>
     <div class="row"><div class="lab">Sleep<small>bed, wake, quality</small></div>
-      <div><div class="inline"><input type="time" lang="en-GB" id="bed" aria-label="Bedtime"> to <input type="time" lang="en-GB" id="wake" aria-label="Wake time">
+      <div><div class="inline"><input type="text" class="tm" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="--:--" id="bed" aria-label="Bedtime"> to <input type="text" class="tm" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="--:--" id="wake" aria-label="Wake time">
         <span id="dur" style="font:500 12px var(--mono);color:var(--ink3)"></span></div>
         <div class="seg" id="sq" style="margin-top:8px" role="group" aria-label="Sleep quality 1 to 5"></div>
         <div class="flag" id="bedFlag"></div></div></div>
+    <div class="row"><div class="lab">Back<small>1 none · 5 severe</small></div>
+      <div><div class="seg" id="back" role="group" aria-label="Back pain 1 to 5"></div><div class="flag" id="backFlag"></div></div></div>
     <div class="row"><div class="lab">Routine<small>tap done, time optional</small></div>
       <div><div class="toggles" id="routine"></div><div class="flag" id="mgFlag"></div></div></div>
-    <div class="row"><div class="lab">Caffeine<small>cutoff 14:00 · never without L-theanine</small></div>
-      <div><div class="inline"><input type="time" lang="en-GB" id="cafT" aria-label="Caffeine time">
-        <input type="number" id="cafMg" placeholder="mg" min="0" max="900" step="5" aria-label="Caffeine mg">
-        <input type="text" id="cafSrc" placeholder="source (optional)" style="flex:1;min-width:150px" aria-label="Caffeine source"></div>
-        <div class="toggles" style="margin-top:8px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">
-          <div class="tg" id="lt" data-on="0" role="button" tabindex="0" aria-pressed="false"><span class="box"></span><span>L-theanine</span></div>
-        </div>
-        <div class="flag" id="cafFlag"></div></div></div>
-    <div class="row"><div class="lab">Workout</div>
-      <div class="inline"><input type="time" lang="en-GB" id="woT" aria-label="Workout time">
-        <input type="number" id="woMin" placeholder="min" min="0" max="300" step="5" aria-label="Workout minutes">
-        <input type="text" id="woType" placeholder="type, e.g. mobility / strength" style="flex:1;min-width:160px" aria-label="Workout type"></div></div>
     <div class="row"><div class="lab">Meditation<small>5 min FA-breath &middot; before the first coffee</small></div>
-      <div><div class="inline"><input type="time" lang="en-GB" id="medT" aria-label="Meditation time">
+      <div><div class="inline"><input type="text" class="tm" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="--:--" id="medT" aria-label="Meditation time">
         <input type="number" id="medMin" placeholder="min" min="0" max="180" step="1" aria-label="Meditation minutes"></div>
         <div class="flag" id="medFlag"></div></div></div>
+    <div class="row"><div class="lab">Caffeine<small>cutoff 14:00 · never without L-theanine</small></div>
+      <div><div id="cafs"></div>
+        <button type="button" class="addbtn" id="cafAdd">+ another serving</button>
+        <div class="flag" id="cafFlag"></div></div></div>
     <div class="row"><div class="lab">NSDR<small>10 to 20 min &middot; 14:00 to 14:30 &middot; dip backstop</small></div>
-      <div><div class="inline"><input type="time" lang="en-GB" id="nsdrT" aria-label="NSDR time">
+      <div><div class="inline"><input type="text" class="tm" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="--:--" id="nsdrT" aria-label="NSDR time">
         <input type="number" id="nsdrMin" placeholder="min" min="0" max="180" step="1" aria-label="NSDR minutes"></div>
         <div class="flag" id="nsdrFlag"></div></div></div>
+    <div class="row"><div class="lab">Workout</div>
+      <div class="inline"><input type="text" class="tm" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="--:--" id="woT" aria-label="Workout time">
+        <input type="number" id="woMin" placeholder="min" min="0" max="300" step="5" aria-label="Workout minutes">
+        <input type="text" id="woType" placeholder="type, e.g. mobility / strength" style="flex:1;min-width:160px" aria-label="Workout type"></div></div>
     <div class="row"><div class="lab">Meals<small>one per line</small></div>
       <div><textarea id="meals" placeholder="time then what, one per line"></textarea></div></div>
   </div>
@@ -169,9 +180,9 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
   <div class="sechd"><span class="n">History</span><h2>The record</h2>
     <span style="margin-left:auto;font:400 11px var(--mono);color:var(--ink4)" id="histStat"></span></div>
   <div class="tw"><table><thead><tr>
-    <th>Date</th><th>Back</th><th>Bed</th><th>Wake</th><th>Dur</th><th>Q</th>
+    <th>Date</th><th>Bed</th><th>Wake</th><th>Dur</th><th>Q</th><th>Back</th>
     <th>Sun</th><th>Walk</th><th>Cold</th><th>AM</th><th>Creat</th><th>Zinc</th><th>Mg</th>
-    <th>Caffeine</th><th>Workout</th><th>Med</th><th>NSDR</th></tr></thead><tbody id="hist"></tbody></table></div>
+    <th>Med</th><th>Caffeine</th><th>NSDR</th><th>Workout</th></tr></thead><tbody id="hist"></tbody></table></div>
   <div class="empty" id="histEmpty">No entries yet. Fill the card above and press Save.</div>
 </section>
 <footer>
@@ -202,14 +213,50 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
   var $=function(i){return document.getElementById(i)};
 
   document.getElementById("root").innerHTML=document.getElementById("tpl").textContent;
-  var note=$("note"), saveBtn=$("saveBtn"), rEl=$("routine"), lt=$("lt");
+  var note=$("note"), saveBtn=$("saveBtn"), rEl=$("routine"), cafsEl=$("cafs");
 
   function todayISO(){
     var t=new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"}));
     return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
   }
-  function blank(){return{back:null,bed:"",wake:"",sq:null,routine:{},caf:{t:"",mg:"",src:"",lt:false},wo:{t:"",min:"",type:""},med:{t:"",min:""},nsdr:{t:"",min:""},meals:""}}
-  function mins(s){var p=s.split(":");return +p[0]*60+ +p[1]}
+  function blank(){return{back:null,bed:"",wake:"",sq:null,routine:{},caf:[],wo:{t:"",min:"",type:""},med:{t:"",min:""},nsdr:{t:"",min:""},meals:""}}
+  function mins(s){var p=String(s).split(":");return +p[0]*60+ +p[1]}
+
+  // ---- 24-hour typed time -------------------------------------------------
+  // type=time was showing AM/PM: lang="en-GB" is only honoured by browsers that
+  // do not defer to the OS locale, and Firefox does. Four digits typed straight
+  // in is fewer keystrokes than the picker either way. The stored value is
+  // still "HH:MM", so mins(), every string comparison and the schema emit are
+  // untouched by this.
+  var TIME_RE=/^([01]\d|2[0-3]):[0-5]\d$/;
+  function fmtTime(v){var d=String(v).replace(/\D/g,"").slice(0,4);
+    return d.length>2?d.slice(0,2)+":"+d.slice(2):d}
+  // On blur only: 3 digits means the leading zero was skipped, 840 is 08:40.
+  function coerceTime(v){var d=String(v).replace(/\D/g,"");
+    if(d.length===3)d="0"+d;
+    if(d.length!==4)return null;
+    var t=d.slice(0,2)+":"+d.slice(2);return TIME_RE.test(t)?t:null}
+  // Half-typed input reads as EMPTY, never as a time. "20" would otherwise
+  // compare true against "14:00" and fire the cutoff flag mid-keystroke, and
+  // mins("20") is NaN. Nothing invalid reaches `data` or the schema.
+  function tv(el){var v=el?String(el.value||"").trim():"";return TIME_RE.test(v)?v:""}
+  function wireTime(el){
+    el.addEventListener("input",function(){
+      var f=fmtTime(el.value);
+      if(f!==el.value){el.value=f;try{el.setSelectionRange(f.length,f.length)}catch(e){}}
+      el.classList.remove("bad")});
+    el.addEventListener("blur",function(){
+      var v=String(el.value||"").trim();
+      if(!v){el.classList.remove("bad");return}
+      var c=coerceTime(v);
+      if(!c){el.classList.add("bad");return}   // left visibly red; already dropped
+      el.classList.remove("bad");
+      if(c!==v){el.value=c;flags();mark()}});
+  }
+  function mkTime(label){var i=document.createElement("input");
+    i.type="text";i.className="tm";i.setAttribute("inputmode","numeric");
+    i.maxLength=5;i.autocomplete="off";i.placeholder="--:--";
+    i.setAttribute("aria-label",label);wireTime(i);return i}
 
   function seg(el,lo,hi){
     for(var i=lo;i<=hi;i++){(function(v){
@@ -220,18 +267,62 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
   function paint(el){Array.prototype.forEach.call(el.children,function(b){
     b.setAttribute("aria-pressed",b.textContent===el.dataset.val?"true":"false")})}
   seg($("back"),1,5); seg($("sq"),1,5);
+  ["bed","wake","medT","nsdrT","woT"].forEach(function(i){wireTime($(i))});
 
   ROUTINE.forEach(function(r){
     var d=document.createElement("div");d.className="tg";d.dataset.k=r[0];d.dataset.on="0";
     d.innerHTML='<span class="box"></span><span>'+r[1]+'</span>';
-    if(r[2]){var t=document.createElement("input");t.type="time";t.lang="en-GB";t.setAttribute("aria-label",r[1]+" time");
+    if(r[2]){var t=mkTime(r[1]+" time");
       t.addEventListener("click",function(e){e.stopPropagation()});
       t.addEventListener("input",function(){d.dataset.on="1";flags();mark()});d.appendChild(t)}
     d.addEventListener("click",function(){d.dataset.on=d.dataset.on==="1"?"0":"1";flags();mark()});
     rEl.appendChild(d)});
-  function toggleLt(){lt.dataset.on=lt.dataset.on==="1"?"0":"1";lt.setAttribute("aria-pressed",lt.dataset.on==="1"?"true":"false");flags();mark()}
-  lt.addEventListener("click",toggleLt);
-  lt.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();toggleLt()}});
+  // ---- caffeine servings --------------------------------------------------
+  // Was one fixed serving. The schema has always had caffeine as an array, so
+  // more than one a day is the shape it already wanted.
+  function cafList(e){var c=e&&e.caf;
+    if(Array.isArray(c))return c;
+    if(c&&(c.t||c.mg||c.src))return [c];   // single-object shape, pre 2026-08-27
+    return []}
+  function cafRows(){return Array.prototype.slice.call(cafsEl.children)}
+  function rmVis(){var n=cafsEl.children.length;
+    cafRows().forEach(function(r){r.querySelector(".rm").hidden=n<2})}
+  function cafRow(c){
+    c=c||{};
+    var row=document.createElement("div");row.className="cafrow";
+    row.appendChild(mkTime("Caffeine time")).classList.add("cafT");
+    var mg=document.createElement("input");mg.type="number";mg.className="cafMg";
+    mg.placeholder="mg";mg.min="0";mg.max="900";mg.step="5";mg.setAttribute("aria-label","Caffeine mg");
+    row.appendChild(mg);
+    var src=document.createElement("input");src.type="text";src.className="cafSrc";
+    src.placeholder="source (optional)";src.setAttribute("aria-label","Caffeine source");
+    row.appendChild(src);
+    var g=document.createElement("div");g.className="tg lt";g.dataset.on=c.lt?"1":"0";
+    g.setAttribute("role","button");g.tabIndex=0;g.setAttribute("aria-pressed",c.lt?"true":"false");
+    g.innerHTML='<span class="box"></span><span>L-theanine</span>';
+    function tog(){g.dataset.on=g.dataset.on==="1"?"0":"1";
+      g.setAttribute("aria-pressed",g.dataset.on==="1"?"true":"false");flags();mark()}
+    g.addEventListener("click",tog);
+    g.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();tog()}});
+    row.appendChild(g);
+    var rm=document.createElement("button");rm.type="button";rm.className="rm";
+    rm.setAttribute("aria-label","Remove this serving");rm.innerHTML="&times;";
+    rm.addEventListener("click",function(){
+      row.remove();
+      if(!cafsEl.children.length)cafsEl.appendChild(cafRow());
+      rmVis();flags();mark()});
+    row.appendChild(rm);
+    row.querySelector(".cafT").value=c.t||"";mg.value=c.mg||"";src.value=c.src||"";
+    return row;
+  }
+  function cafDrawn(){   // what is on screen right now, times only, earliest first
+    return cafRows().map(function(r){
+      return {t:tv(r.querySelector(".cafT")),lt:r.querySelector(".lt").dataset.on==="1"}})
+      .filter(function(c){return c.t})
+      .sort(function(a,b){return a.t<b.t?-1:a.t>b.t?1:0})}
+  $("cafAdd").addEventListener("click",function(){
+    var r=cafRow();cafsEl.appendChild(r);rmVis();
+    r.querySelector(".cafT").focus()});   // empty row changes nothing, so no mark()
 
   function setFlag(el,c,m){el.className="flag "+(m?("on "+c):"");el.textContent=m||""}
   function flags(){
@@ -239,19 +330,26 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
     if(b==="") setFlag($("backFlag"),"warn","No reading means tomorrow's workout demotes to mobility automatically.");
     else if(+b<=2) setFlag($("backFlag"),"good","At or below the 2 of 5 gate. Strength stays scheduled.");
     else setFlag($("backFlag"),"stop","Above the gate. Tomorrow demotes to mobility.");
-    var t=$("cafT").value,msgs=[],worst="good";
-    if(t){
-      if(t>="14:00"){msgs.push("After the 14:00 cutoff. Remedy is +100mg elemental magnesium tonight.");worst="stop"}
-      else msgs.push("Inside the cutoff.");
-      if(lt.dataset.on!=="1"){msgs.push("No L-theanine. The rule is never caffeine without it.");worst="stop"}
+    var cl=cafDrawn(),first=cl.length?cl[0].t:"",msgs=[],worst="good";
+    if(cl.length){
+      var late=cl.filter(function(c){return c.t>="14:00"}),
+          noLt=cl.filter(function(c){return !c.lt});
+      if(late.length){
+        msgs.push((late.length>1?late.length+" servings ":"")+late.map(function(c){return c.t}).join(", ")
+          +" after the 14:00 cutoff. Remedy is +100mg elemental magnesium tonight.");worst="stop"}
+      else msgs.push(cl.length>1?"All "+cl.length+" servings inside the cutoff.":"Inside the cutoff.");
+      if(noLt.length){
+        msgs.push("No L-theanine at "+noLt.map(function(c){return c.t}).join(", ")
+          +". The rule is never caffeine without it.");worst="stop"}
     }
     setFlag($("cafFlag"),worst,msgs.join(" "));
     var z=rEl.querySelector('[data-k="zinc"] input'),m=rEl.querySelector('[data-k="mg_stack"] input');
-    if(z&&m&&z.value&&m.value){var g=mins(m.value)-mins(z.value);if(g<0)g+=1440;
+    var zv=tv(z),mv=tv(m);
+    if(zv&&mv){var g=mins(mv)-mins(zv);if(g<0)g+=1440;
       var h=Math.floor(g/60)+"h"+String(g%60).padStart(2,"0");
       setFlag($("mgFlag"),g<120?"stop":"good","Zinc to magnesium "+h+(g<120?", under the 2h separation. Zinc blocks magnesium absorption.":", clears the 2h separation."))}
     else setFlag($("mgFlag"),"","");
-    var bd=$("bed").value,wk=$("wake").value;
+    var bd=tv($("bed")),wk=tv($("wake"));
     if(bd&&wk){var d2=mins(wk)-mins(bd);if(d2<0)d2+=1440;
       $("dur").textContent=Math.floor(d2/60)+"h "+String(d2%60).padStart(2,"0")+"m"}else $("dur").textContent="";
     setFlag($("bedFlag"),"warn",(bd&&bd>"22:30"&&bd<"12:00")?"Past the 22:30 cap.":"");
@@ -260,9 +358,9 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
     // is meant to run caffeine-free, then the coffee fuels the block as plasma
     // ramps. Ordering is the rule; duration is not, because frequency (>=4
     // days/wk) is the expensive variable, not minutes.
-    var mt=$("medT").value,mm=$("medMin").value,mMsg=[],mW="good";
+    var mt=tv($("medT")),mm=$("medMin").value,mMsg=[],mW="good";
     if(mt||mm){
-      if(mt&&t){ if(mt>=t){mMsg.push("After the first coffee. The 5-min breath work is meant to run caffeine-free, before it.");mW="stop"}
+      if(mt&&first){ if(mt>=first){mMsg.push("After the first coffee. The 5-min breath work is meant to run caffeine-free, before it.");mW="stop"}
                  else mMsg.push("Before the first coffee, as ordered."); }
       if(mm&&+mm<5) mMsg.push("Under the 5-min target, but frequency beats duration here.");
     }
@@ -270,7 +368,7 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
 
     // NSDR. A backstop, not the first lever: the walk and the lunch come first.
     // Window is 14:00-14:30, dose 10-20 min.
-    var nt=$("nsdrT").value,nm=$("nsdrMin").value,nMsg=[],nBad=false;
+    var nt=tv($("nsdrT")),nm=$("nsdrMin").value,nMsg=[],nBad=false;
     if(nt||nm){
       if(nt&&(nt<"14:00"||nt>"14:30")){nMsg.push("Outside the 14:00 to 14:30 window.");nBad=true}
       else if(nt) nMsg.push("Inside the window.");
@@ -283,13 +381,16 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
     var e=blank();
     e.back=$("back").dataset.val===""?null:+$("back").dataset.val;
     e.sq=$("sq").dataset.val===""?null:+$("sq").dataset.val;
-    e.bed=$("bed").value;e.wake=$("wake").value;
+    e.bed=tv($("bed"));e.wake=tv($("wake"));
     rEl.querySelectorAll(".tg").forEach(function(d){var i=d.querySelector("input");
-      if(d.dataset.on==="1")e.routine[d.dataset.k]={done:true,time:i?i.value:""}});
-    e.caf={t:$("cafT").value,mg:$("cafMg").value,src:$("cafSrc").value,lt:lt.dataset.on==="1"};
-    e.wo={t:$("woT").value,min:$("woMin").value,type:$("woType").value};
-    e.med={t:$("medT").value,min:$("medMin").value};
-    e.nsdr={t:$("nsdrT").value,min:$("nsdrMin").value};
+      if(d.dataset.on==="1")e.routine[d.dataset.k]={done:true,time:tv(i)}});
+    e.caf=cafRows().map(function(r){
+      return {t:tv(r.querySelector(".cafT")),mg:r.querySelector(".cafMg").value,
+              src:r.querySelector(".cafSrc").value,lt:r.querySelector(".lt").dataset.on==="1"}})
+      .filter(function(c){return c.t||c.mg||c.src});
+    e.wo={t:tv($("woT")),min:$("woMin").value,type:$("woType").value};
+    e.med={t:tv($("medT")),min:$("medMin").value};
+    e.nsdr={t:tv($("nsdrT")),min:$("nsdrMin").value};
     e.meals=$("meals").value;return e;
   }
   function write(e){
@@ -299,15 +400,15 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
     $("bed").value=e.bed||"";$("wake").value=e.wake||"";
     rEl.querySelectorAll(".tg").forEach(function(d){var r=(e.routine||{})[d.dataset.k];
       d.dataset.on=r?"1":"0";var i=d.querySelector("input");if(i)i.value=(r&&r.time)||""});
-    var c=e.caf||{};$("cafT").value=c.t||"";$("cafMg").value=c.mg||"";$("cafSrc").value=c.src||"";
-    lt.dataset.on=c.lt?"1":"0";lt.setAttribute("aria-pressed",c.lt?"true":"false");
+    var cl=cafList(e);cafsEl.innerHTML="";
+    (cl.length?cl:[{}]).forEach(function(c){cafsEl.appendChild(cafRow(c))});rmVis();
     var w=e.wo||{};$("woT").value=w.t||"";$("woMin").value=w.min||"";$("woType").value=w.type||"";
     var md=e.med||{};$("medT").value=md.t||"";$("medMin").value=md.min||"";
     var nd=e.nsdr||{};$("nsdrT").value=nd.t||"";$("nsdrMin").value=nd.min||"";
     $("meals").value=e.meals||"";flags();
   }
   function filled(e){return !!e&&(e.back!=null||e.bed||e.wake||e.sq!=null||Object.keys(e.routine||{}).length
-    ||(e.caf&&e.caf.t)||(e.wo&&(e.wo.type||e.wo.min))
+    ||cafList(e).some(function(c){return c.t||c.mg||c.src})||(e.wo&&(e.wo.type||e.wo.min))
     ||(e.med&&(e.med.t||e.med.min))||(e.nsdr&&(e.nsdr.t||e.nsdr.min))||e.meals)}
   function mark(){dirty=true;touchedAt=Date.now();data[$("d").value]=read();
     try{localStorage.setItem(KEY,JSON.stringify({v:data,touchedAt:touchedAt}))}catch(e){}
@@ -321,17 +422,20 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
       var e=data[k],tr=document.createElement("tr"),dur="";
       if(e.bed&&e.wake){var d2=mins(e.wake)-mins(e.bed);if(d2<0)d2+=1440;dur=Math.floor(d2/60)+"h"+String(d2%60).padStart(2,"0")}
       function dot(x){return (e.routine||{})[x]?'<span class="dot">&#9679;</span>':'<span class="dotx">&#8722;</span>'}
-      var caf="";if(e.caf&&e.caf.t){caf=e.caf.t+(e.caf.mg?" "+e.caf.mg+"mg":"");
-        caf+=e.caf.lt?' <span class="dot">+LT</span>':' <span class="no">!LT</span>'}
+      var caf=cafList(e).filter(function(c){return c.t})
+        .sort(function(a,b){return a.t<b.t?-1:a.t>b.t?1:0})
+        .map(function(c){return c.t+(c.mg?" "+c.mg+"mg":"")
+          +(c.lt?' <span class="dot">+LT</span>':' <span class="no">!LT</span>')})
+        .join(' <span class="dotx">&middot;</span> ');
       var wo=(e.wo&&(e.wo.type||e.wo.min))?((e.wo.type||"")+(e.wo.min?" "+e.wo.min+"m":"")).trim():"";
       function span(o){ if(!o||(!o.t&&!o.min))return '<span class="dotx">&#8722;</span>';
         return (o.min?o.min+"m":"")+(o.t?(o.min?" ":"")+o.t:"") }
-      tr.innerHTML='<td class="d">'+k.slice(5)+'</td><td class="mid">'
-        +(e.back==null?'<span class="dotx">&#8722;</span>':'<span class="pill p'+e.back+'">'+e.back+'</span>')
-        +'</td><td>'+(e.bed||"")+'</td><td>'+(e.wake||"")+'</td><td>'+dur+'</td><td class="mid">'+(e.sq==null?"":e.sq)
+      tr.innerHTML='<td class="d">'+k.slice(5)+'</td>'
+        +'<td>'+(e.bed||"")+'</td><td>'+(e.wake||"")+'</td><td>'+dur+'</td><td class="mid">'+(e.sq==null?"":e.sq)+'</td>'
+        +'<td class="mid">'+(e.back==null?'<span class="dotx">&#8722;</span>':'<span class="pill p'+e.back+'">'+e.back+'</span>')
         +'</td><td class="mid">'+dot("sunlight")+'</td><td class="mid">'+dot("morning_walk")+'</td><td class="mid">'+dot("cold_shower")+'</td><td class="mid">'+dot("supplements_breakfast")
         +'</td><td class="mid">'+dot("creatine")+'</td><td class="mid">'+dot("zinc")+'</td><td class="mid">'+dot("mg_stack")
-        +'</td><td>'+caf+'</td><td>'+wo+'</td><td>'+span(e.med)+'</td><td>'+span(e.nsdr)+'</td>';
+        +'</td><td>'+span(e.med)+'</td><td>'+caf+'</td><td>'+span(e.nsdr)+'</td><td>'+wo+'</td>';
       tr.addEventListener("click",function(){$("d").value=k;load()});tb.appendChild(tr)});
   }
 
@@ -348,17 +452,18 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font:40
     // validation. 65mg is the historical median here (one shot) and CLAUDE.md
     // says estimate rather than refuse, so a blank mg box is filled and the
     // source says plainly that it was estimated.
-    if(e.caf&&e.caf.t){
-      var c={time:e.caf.t};
-      c.amount_mg=e.caf.mg?+e.caf.mg:65;
+    var cafs=cafList(e).filter(function(x){return x.t})
+      .sort(function(a,b){return a.t<b.t?-1:a.t>b.t?1:0});
+    if(cafs.length) log.caffeine=cafs.map(function(x){
+      var c={time:x.t};
+      c.amount_mg=x.mg?+x.mg:65;
       var bits=[];
-      if(e.caf.src)bits.push(e.caf.src);
-      if(!e.caf.mg)bits.push("amount not logged; estimated 1 shot");
-      bits.push(e.caf.lt?"+ L-theanine":"NO L-theanine");
-      if(e.caf.t>="14:00")bits.push("AFTER 14:00 cutoff");
+      if(x.src)bits.push(x.src);
+      if(!x.mg)bits.push("amount not logged; estimated 1 shot");
+      bits.push(x.lt?"+ L-theanine":"NO L-theanine");
+      if(x.t>="14:00")bits.push("AFTER 14:00 cutoff");
       c.source=bits.join("; ");
-      log.caffeine=[c];
-    }
+      return c});
     // Meditation and NSDR are routine items, not a new top-level key: log has
     // additionalProperties:false, and RoutineItem already carries time +
     // duration_min. `meditation` is a canonical ItemId in the schema's own list.
